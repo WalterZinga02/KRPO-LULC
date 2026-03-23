@@ -1,0 +1,28 @@
+You are an expert in Natural Language Inference (NLI). Your task is to determine the logical relationship between a given *premise* (a long text) and a *hypothesis* (a short text).
+
+There are three possible labels:
+1. "entailment" – The hypothesis logically follows from the premise.
+2. "contradiction" – The hypothesis is logically inconsistent with the premise.
+3. "neutral" – The hypothesis is neither entailed nor contradicted by the premise.
+
+Note: All double quotes in the reasoning should be escaped with backslashes.
+
+Return the result strictly in the following JSON format:
+{{
+  "label": "entailment" | "contradiction" | "neutral",
+  "confidence": float between 0 and 1,
+  "reasoning": "a brief explanation of your decision"
+}}
+
+{few_shot_examples}
+Premise:
+"""
+{raw_sentence}
+"""
+
+Hypothesis:
+"""
+{kg_text}
+"""
+
+Output:

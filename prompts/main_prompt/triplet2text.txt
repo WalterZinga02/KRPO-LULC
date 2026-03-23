@@ -1,0 +1,12 @@
+You are given a factual triplet in the form (subject, relation, object).
+
+Your task is to convert the triplet into a natural language sentence, ensuring the following:
+
+- Do not add any information not present in the triplet.
+- Retain the semantics of the relation as much as possible.
+- The sentence should accurately reflect the meaning of the triplet.
+- Just need to give one sentence.
+
+
+Input triplet: {input_triplet}
+Output:

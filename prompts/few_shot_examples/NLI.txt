@@ -1,0 +1,61 @@
+### Example 1
+
+Premise:
+"""
+Alice submitted her application before the deadline and received an offer for the software engineering position two weeks later.
+"""
+
+Hypothesis:
+"""
+Alice was offered the job after submitting her application.
+"""
+
+Output:
+{
+  "label": "entailment",
+  "confidence": 0.95,
+  "reasoning": "The premise clearly states that Alice submitted the application and received an offer afterward, which directly supports the hypothesis."
+}
+
+
+### Example 2
+
+Premise:
+"""
+The report stated that the earthquake occurred in 2010, causing massive destruction across the region.
+"""
+
+Hypothesis:
+"""
+The earthquake took place in 2015.
+"""
+
+Output:
+{
+  "label": "contradiction",
+  "confidence": 0.92,
+  "reasoning": "The premise explicitly mentions 2010 as the year of the earthquake, which directly contradicts the hypothesis claiming 2015."
+}
+
+
+### Example 3
+
+Premise:
+"""
+Dr. Kumar has published several papers on machine learning, with a recent focus on reinforcement learning applications.
+"""
+
+Hypothesis:
+"""
+Dr. Kumar prefers teaching over research.
+"""
+
+Output:
+{
+  "label": "neutral",
+  "confidence": 0.87,
+  "reasoning": "The premise discusses Dr. Kumar’s research focus but does not provide any information about his teaching preferences."
+}
+
+
+### Now your turn:
