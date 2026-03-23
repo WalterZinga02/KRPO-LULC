@@ -1,6 +1,7 @@
 # Knowledge Restoration-driven Prompt Optimization
 
 This repository contains the code for the paper **"Knowledge Restoration-driven Prompt Optimization: Unlocking LLM Potential on Open-Domain Relational triplet Extraction"**.
+The original code has been extended and adapted for domain-specific applications in Land Use and Land Cover (LULC) knowledge extraction.
 
 ## Overview
 
