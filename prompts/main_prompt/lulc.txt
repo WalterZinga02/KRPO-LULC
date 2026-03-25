@@ -1,0 +1,14 @@
+Your task is to transform the given text into a semantic graph in the form of a list of triples. In your answer, please strictly only include the triples and do not include any explanation or apologies.
+The domain is land use and land cover. Focus on extracting meaningful relationships such as land cover changes, environmental processes, and human activities.
+The triples must be in the following form:
+{{"triplets":[[subject, predicate, object], ...]}}
+If a sentence contains multiple triplets, please extract and list them all at once. The "subject", "predicate" and "object" in the triplet should describe the core meaning of the sentence as accurately as possible. Please ensure that each triplet is clear and complete.
+Ensure the output is a valid JSON object in a compact format without any additional explanations, escape characters, newline characters, or backslashes.
+
+Here are some examples:
+{few_shot_examples}
+
+Now please extract triplets from the following text.
+Text: {input_text}
+Triplets:
+

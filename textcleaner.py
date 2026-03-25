@@ -163,8 +163,16 @@ llm_input_df = df[["text_segment_clean"]].copy()
 # Remove empty or very short sentences
 llm_input_df = llm_input_df[llm_input_df["text_segment_clean"].str.len() > 5]
 
-# Rename column
-llm_input_df.columns = ["text"]
+# Clean and convert to list
+sentences = []
+for s in llm_input_df["text_segment_clean"]:
+    if isinstance(s, str):
+        s = s.strip().replace("\n", " ")
+        s = " ".join(s.split())  # remove extra spaces
+        if len(s) > 5:
+            sentences.append(s)
 
-# Save
-llm_input_df.to_csv("llm_input.csv", index=False)
+# Save as TXT
+with open("datasets/lulc.txt", "w", encoding="utf-8") as f:
+    for s in sentences:
+        f.write(s + "\n")
