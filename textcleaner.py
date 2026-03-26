@@ -173,6 +173,6 @@ for s in llm_input_df["text_segment_clean"]:
             sentences.append(s)
 
 # Save as TXT
-with open("datasets/lulc.txt", "w", encoding="utf-8") as f:
+with open("datasets/lulc_dataset.txt", "w", encoding="utf-8") as f:
     for s in sentences:
         f.write(s + "\n")

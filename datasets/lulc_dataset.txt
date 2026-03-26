@@ -218,7 +218,6 @@ However, the evidence is currently lacking to confidently estimate their signifi
 Further, they are also often grown together with other crops in agroforestry systems
 Records for staple crops are frequently based on estimates and may underestimate harvested areas in subsistence or smallholder contexts as a result of minimum harvested area criteria in records. Many of the crops discussed above are important export crops-including soybeans, palm oil, rubber, coffee, and cacao-and international trade has been identified as a key driver of deforestation since the 2000s
 Three pantropical studies assess deforestation associated with trade in commodities: Nguyen and Kanemoto (38), Cuypers et al
-, and Pendrill et al
 A physical trade model-which traces deforestation embodied in raw or lightly processed agricultural commodities-suggests that 20 to 25% of all deforestation resulting in agricultural production is linked to exports (37)
 An economic, multiregional input-output model, which traces deforestation all the way to final consumption, raises the share of commoditydriven deforestation linked to international demand to ~35% (37)
 Deforestation can also be followed by several successive agricultural land uses
@@ -260,7 +259,6 @@ Many of these approaches would likely benefit from closer partnerships between d
 There is an urgent need to identify and leverage the mechanisms by which demand-side supply-chain policies, including zero-deforestation commitments, can go beyond their immediate impacts and help motivate and catalyze broader changes in territorial governance
 This remains a key research frontier. 'Second, to effectively reduce deforestation, interventions need to address the systemic interdependencies between the expansion of different commodities, requiring a much stronger focus on more comprehensive, landscapelevel approaches
 The most prominent example of this is pasture expansion, which is tightly linked to soy expansion and land speculation across Latin America
-(32), Goldman et al
 (32) assumes a constant fraction of deforestation being agriculture-driven on the basis of pre-2010 data from other studies De Sy et al
 (8) and Hosonuma et al
 (37) up to 9.6 Mha per year Curtis et al
@@ -268,19 +266,16 @@ The most prominent example of this is pasture expansion, which is tightly linked
 The area of each circle is scaled by the estimated extent although the ranges are not represented; consequently for deforestation and agriculture-driven deforestation the extent is approximated
 (B) Studies vary considerably in their estimated extents (millions of hectares per year) and trends, reflecting uncertainties and conceptual differences
 (32); agriculture-driven deforestation, updated from Curtis et al
-(7), Carter et al
 In all figures, the data have been aligned to the same set of 87 (sub)tropical countries.
 The average extents (2011 to 2015) of TCL by driver data from Hansen et al
 (36) and Pendrill et al
 TCL, tree cover loss; def, deforestation; agr, agriculture; prod, production.
-3.3 Fig
 Agriculturedriven deforestation based on Curtis et al
 (7) includes deforestation resulting in agricultural production based on Pendrill et al
 (37) as well as agriculture-driven deforestation without expansion of agricultural production, which can occur through several potential mechanisms
 Incomplete records of agricultural area and production might also explain a share of that deforestation, which should thus be attributed to certain land uses and commodities if monitoring systems improve
 Deforestation resulting in agricultural production can in turn be attributed further to certain land uses and commodities based on Pendrill et al
 (37) and Goldman et al
-See full text
 and trade-offs of agroforestry for climate change mitigation and other sustainability goals in West Africa and trade-offs of agroforestry for climate change mitigation and other sustainability goals in West Africa a b s t r a c t Agroforestry is a land management practice where trees are grown around or among crops or pastureland
 This integration of agriculture and forestry is frequently seen as an option that can secure food security and co-deliver a range of environmental benefits
 However, quantitative studies simultaneously integrating multiple aspects of agroforestry are rare
@@ -1523,7 +1518,6 @@ Even though the income position of the rural population can remain stable under 
 10 Fallow period (a) and income changes (b) with respect to historical reference, ' 1 Land use in the ORB, Land use Area (in km 2 ) Percentage of total area' 'Forest 11208 21.74' 'Savannah 21008 40.76' 'Mosaic with agriculture 17611 34.17' 'Plantations 1394 2.71' 'Water bodies 21 0.04' 'Rangeland 21 0.04' 'Bare land 4 0.01' 'Urban and built-up areas 276 0.54 ' 2 Data used, resolution and source , Area Attribute Resolution Source' 'ORB Identifier grid 3 km Project output, Identifier grid 300 m Project output, ORB delineation polygon Project output, HBV model results (water balance) grid 3 km Rivertwin 2007a, Land use map grid 300 m Igue et al
 2006a, b' 'Benin & ORB Urban/Rural area map 30 arcsec Igue et al
 2006a, b, Climate change scenarios 30 arcsec Rivertwin 2007b, Population map 30 arcsec UNEP/GRID 2000, Administrative map polygon FAO 2006, Soil suitability,2, Length of Growing Period (1960-1996),2, Benin Crop production (crop, area, production yield) polygon Rivertwin 2007c, Household Survey (agricultural income, point data IFPRI 2004, land, labor, inputs),4 in two groups: Agronomy-Water (AW) and Climate Change (CC)
-Agronomy-Water
 The scenarios allow for adaptations in water and input supply using the land use of the reference year and the base climate change scenario
 Specifically, Scenario AW1 is the Business As Usual (BAU) scenario as no interventions are planned, while AW2 and AW3 simulate increasing intensity of input supply while keeping water supply at Zero (base-level) intensity level; the AW4 scenarios raise the water supply at Strong intensity level without lifting input restrictions
 Finally, the AW5 and AW6 interventions decrease the fallow period by 20 and 50%, respectively, by applying modest amounts of fertilizer to sustain the yield levels
@@ -1591,7 +1585,6 @@ The main argument for this assertion was the ongoing deforestation (70% of the e
 The change of 8% from cropland to mixed vegetation could be either related to the still existent crop-fallow practice in agriculture or the abandonment of marginal cropland for livestock grazing according to the experts
 The expert interviews revealed that the crop-fallow system is rarely practiced today and all agricultural land is under permanent use
 Experts underpinned that, currently, every nonagricultural plot of land is bare or marginal land which cannot be used for agriculture.
-,:3.2.
 The multiple regression analysis of remote sensing data showed that each of the drivers is interrelated to one or more different LULCC with a different significance level, Annex 5)
 For example, expansion of agricultural land is related to the distance to irrigation by dams, to settlements, to roads and population change (see Table )
 Irrigation from rivers is regarded as minor driver of LULCC
@@ -3278,7 +3271,6 @@ This might be the greatest contribution to deforestation in the protected areas
 Land cultivation for subsistence agriculture in the protected area belongs to this category
 This analysis confirmed the major trends of wildlife habitats, mainly depletion of gallery forest, woodland, tree and shrub savanna, and an increase in agricultural land in the study area
 Deforestation is the most drastic cause of land degradation
-due to crop failure)
 Thus, although the observed changes are real, they may have become more pronounced due to rainfall amounts in the two extreme years. In tropical countries, such as Burkina Faso, socio-economic factors such as poverty and population increase are mostly related to deforestation activities
 It has also been established that building roads and other communication systems increase the rate of deforestation
 Many landscape ecological studies showed that socioeconomic factors forestry expansion urbanization and agricultural use patterns also showed a similar impact on vegetation
@@ -3828,7 +3820,6 @@ The integration of fertilizer trees into food crop agriculture is a promising, b
 This portfolio of options is now referred to as Evergreen Agriculture
 The major experiences with Evergreen Agriculture and its broader implications for African food security are reviewed in this article. What is Evergreen Agriculture?, Evergreen Agriculture is defined as the integration of trees into annual food crop systems
 Depending upon which woody species are used, and how they are managed, their incorporation into crop fields and agricultural landscapes may contribute to:,(Sileshi et al
-2007),(Zomer et al
 2009)' 'About half of all agricultural land in the world now has greater than 10% tree cover
 In some regions tree cover on farmlands averages over 30%
 In many countries the agroforestry area is steadily increasing. Evergreen farming systems feature both perennial and annual species (trees and food crops)
@@ -5295,7 +5286,6 @@ Indeed, a much lower critical threshold for deforestation than Rainfall is reduc
 35. | Effect of tropical deforestation on rainfall at a continental scale. Global circulation models suggest that for low levels of deforestation, regional rainfall may be similar to or slightly higher than (B) rainfall in undisturbed forest (A)
 As deforestation expands, rainfall declines (C). A tipping point may occur when deforestation reaches 30 -50% (D), after which rainfall is substantially reduced
 The pattern of deforestation can also influence how regional climate is modified
-Nobre et al
 As expected, complete deforestation led to the greatest reductions in rainfall (26-42%)
 When deforestation was evenly distributed in a checkerboard pattern over only 50% of relatively small cells (1.85° × 1.85° grid), rainfall was reduced by less (14-22%)
 When the same level of deforestation occurred over a grid with cells nine times as large (5.5° × 5.5°), the reduction in rainfall was even smaller (12-15%, Fig
@@ -5307,7 +5297,6 @@ However, as the size of the cleared area grows, a net increase is likely to swit
 The greater magnitude of decline within an array of clearings than within a single patch suggests a complex interaction among patch size, the existence of additional deforested patches nearby, and the total area deforested (Box 1)
 Large-scale winds can weaken or mask smaller-scale circulations
 While temperature effects tend to persist, the decline in mean rainfall has generally been smaller in mesoscale studies of Amazonian deforestation than in GCM simulations vegetation and rainfall along air mass trajectories, resulted in strong effects on rainfall
-Spracklen et al
 Monsoon wind flow increases in response to simulated complete deforestation of West Africa
 Greater flow leads to a large and uniform reduction in rainfall (40% to 50%) in all months of the year across West Africa from the coast to the Sahel
 Rainfall in the Sahel region increases while precipitation over the Guinea coast decreases
@@ -5324,7 +5313,6 @@ Observations reveal both increases and decreases in cloud cover with deforestati
 In areas of substantial deforestation in the Amazon, higher detectable heat flux from the deforested land produces a deeper convective boundary layer and enhances thermally driven circulations that lead to more cloud cover over deforested areas
 Satellite data show that current patterns of Amazonian deforestation enhance shallow cumulus cloud cover over deforested areas. In contrast, satellite imagery of lowland Costa Rica and Nicaragua indicate that deforested areas remain relatively cloud free during the dry season while forested areas have well-developed cumulus cloud fields
 Costa Rica, roughly 100 km wide, sits between two oceans in a Central American landmass 15 times smaller than the Amazon
-Spracklen et al
 Similarly, rainfall in the cloud forests of Costa Rica is sensitive to upwind vegetative cover
 Tree cover was a good predictor of the annual number of rain days, but not total annual rainfall in São Paulo, Brazil from 1962-1992
 By implication, although fewer rain events occurred in deforested sites, they were of higher intensity, compared with forested sites. The seasonality of rainfall has shifted due to deforestation in Brazil
@@ -5332,7 +5320,6 @@ Meteorological stations in Rondônia, Brazil indicate that the wet season has be
 Marengo 102 observed a positive trend in the southern Amazon, where deforestation has been concentrated, starting even earlier (1950-1998)
 Increased discharge from the Amazon River suggests a wetting trend in the basin since 1990, concentrated in the rainy season
 The standard precipitation index for the southern Amazon declined between 1970-1999
-Saad et al
 A tipping point must exist for patches in continental scale arrays as well
 Thus, those may reflect a critical patch size across the continent rather than a critical threshold for total area deforested
 Deforestation everywhere has occurred along with greenhouse-gas induced warming
@@ -5841,9 +5828,7 @@ To bridge the gap, this paper evaluated the impact of mining activities on land 
 The open plains are mostly composed of scattered base rocks and shallow gorges
 C1 = Shrubby savanna, C2 = Bare-ground/built-up areas/rock outcrops, C3 = Wooded savanna, C4 = Waterbody and C5 = Grassy savanna (C5)
 C(.) -C(.) represents a transition from one class to another.
-5.5 Fig
 This was followed by grassy savanna with,
-6.6 Fig
 The study provides baseline data and area-specific information on the dynamics of LULC change in the gold mining enclaves, which is lacking in the literature, due to obvious reasons of locational insecurity of the mining enclaves and related factors. It also provides baseline information for future efforts on land reclamation and biodiversity management in the study settings. South by Kaduna State, to the North by the Niger Republic, to the West by Sokoto and Niger States respectively and to the East by Katsina State
 agriculture and ecosystem services: An overview agriculture and ecosystem services: An overview : a b s t r a c t Conservation agriculture (CA) changes soil properties and processes compared to conventional agriculture
 These changes can, in turn, affect the delivery of ecosystem services, including climate regulation through carbon sequestration and greenhouse gas emissions, and regulation and provision of water through soil physical, chemical and biological properties
@@ -6235,7 +6220,6 @@ Indeed, some case studies document situations where, despite population increase
 Such trends seem to be found where land has become a limiting factor to expansion of agricultural production and where farmers have been able to intensify their agricultural practices (through the use of plough, fertilizers, soil and water management practices)
 However, it should be noted that intensification is often described in the studies as both a driver and an impact of crop land stability
 If we explore the land use change trends through the classic theoretical lenses of Ester we can expect intensification measures to stabilize field expansion despite a population increase
-water))
 Other areas have experienced a decrease in crop land despite a population increase
 (2011)' 'Perhaps most importantly, the meta-analysis exposes the surprisingly huge gap in the scientific literature when it comes to actual measurements of crop land change in the Sahel, which are in sharp contrast to the number of scientific papers and policy discourses that refer to important past and ongoing changes in land use/cover and desertification
 mentions, as examples, that project documents often postulate that many hectares have been degraded over the past few decades and that population pressure more or less automatically leads to the extension of land under cultivation, without having a valid set of data on which to base such assessments
@@ -7163,7 +7147,6 @@ The cropping period is too short for the trees to recover from the overuse durin
 Once vegetation is lost, soils become susceptible to erosion
 Regular cultivation keeps the soil penetrable and farmers are aware of the benefits of trees in their fields
 However, the explanations for large parts of the greening are of a different nature:(1) according to interviewees, cropping encroached rapidly since the 1960s (see also while today many fields are fallow due to the lack of rain in the past decades
-Shrubs and trees (C
 Furthermore,(2) reforestation areas maintained by farmers and supported by the Governmental Forest Agency fill up large parts of this area as can be seen by positive MODIS trends in Fig
 Since the 1960s, the natural vegetation has been completely transformed and today many trees and shrubs have become rare or disappeared
 ) due to climatic and anthropogenic reasons:,(1) the 1970s and 1980s drought events have caused the death of individuals of various tree and shrub species
