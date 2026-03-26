@@ -169,7 +169,7 @@ for s in llm_input_df["text_segment_clean"]:
     if isinstance(s, str):
         s = s.strip().replace("\n", " ")
         s = " ".join(s.split())  # remove extra spaces
-        if len(s) > 5:
+        if len(s) > 20:  # filter out very short sentences
             sentences.append(s)
 
 # Save as TXT
