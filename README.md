@@ -1,6 +1,6 @@
 # Knowledge Restoration-driven Prompt Optimization
 
-This repository contains the code for the paper **"Knowledge Restoration-driven Prompt Optimization: Unlocking LLM Potential on Open-Domain Relational triplet Extraction"**.
+This repository contains the code for the paper **"Knowledge Restoration-driven Prompt Optimization: Unlocking LLM Potential on Open-Domain Relational triplet Extraction"** ( https://anonymous.4open.science/r/KRPO-B26W).
 The original code has been extended and adapted for domain-specific applications in Land Use and Land Cover (LULC) knowledge extraction.
 
 ## Overview
@@ -13,22 +13,25 @@ The project structure is as follows:
 
 ```
 datasets/
-    example.txt              # Example data file
+        lulc_dataset.txt         # Domain-specific dataset
 evaluate/
     references/
-        example.txt          # Reference for evaluation
-        evaluation_script.py  # Evaluation script
-    README.md                # Evaluation documentation
+        example.txt              # Reference for evaluation
+        evaluation_script.py     # Evaluation script
+    README.md                    # Evaluation documentation
 model_utils/
-    llms.py                  # LLM configuration and setup
+    llms.py                      # LLM configuration and setup
 prompts/
-    -----                  # Auxiliary prompt definitions
+    -----                        # Auxiliary prompt definitions
 schemas/
-    example_schema.csv       # Example schema for the datasets
+    example_schema.csv           # Example schema for the datasets
 tools/
-README.md                # General tools documentation
-requirements.txt         # Required dependencies for the project
-run_tg_batch.py          # Script to execute the process
+README.md                        # General tools documentation
+requirements.txt                 # Required dependencies for the project
+run_tg_batch.py                  # Script to execute the process
+textcleaner.py                   # Script to pre process the extracted text
+all_corpus_processed.xlsx        # Text extracted from PDFs using GROBID
+cleaned_dataset.xlsx             # Processed text for evaluation purpose
 ```
 
 ### Key Directories and Files
