@@ -7,7 +7,7 @@ import logging
 
 
 class UTF8FileHandler(logging.FileHandler):
-    def __init__(self, filename, mode='a', encoding=None, delay=False):
+    def __init__(self, filename, mode='w', encoding=None, delay=False):
         super().__init__(filename, mode, encoding, delay)
 
 
@@ -39,26 +39,44 @@ def text_relcanon(query: str, docs: list[str]):
 
 class LLMInvoker:
     def __init__(self, choose_model="", llm_log_path=""):
-        self.llm = OpenAI(
-           api_key=os.getenv("OPENAI_API_KEY"),
-        )
+        api_key = os.getenv("OPENAI_API_KEY")
+
+        # Controllo API key mancante
+        if not api_key:
+            raise ValueError("❌ OPENAI_API_KEY environment variable is not set.")
+
+        try:
+            self.llm = OpenAI(api_key=api_key)
+        except Exception as e:
+            raise ValueError(f"❌ Failed to initialize OpenAI client: {e}")
+
         self.choose_model = choose_model
 
+        # Logger setup (evita duplicati)
         self.llm_logger = logging.getLogger('Logger1')
-        self.llm_log_handler = UTF8FileHandler(llm_log_path, encoding='utf-8')
-        self.llm_log_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        self.llm_logger.addHandler(self.llm_log_handler)
         self.llm_logger.setLevel(logging.INFO)
+
+        if not self.llm_logger.handlers:
+            self.llm_log_handler = UTF8FileHandler(llm_log_path, mode='w', encoding='utf-8')
+            self.llm_log_handler.setFormatter(
+                logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            )
+            self.llm_logger.addHandler(self.llm_log_handler)
 
     def _invoke(self, mess):
         self.llm_logger.info(f"callModel: {self.choose_model}")
-        completion = self.llm.chat.completions.create(
-            model=self.choose_model,
-            messages=mess,
-            temperature=0.2
-        )
-        self.llm_logger.info(f"callConsumption: {completion.usage}")
-        return completion.choices[0].message.content
+        try:
+            completion = self.llm.chat.completions.create(
+                model=self.choose_model,
+                messages=mess,
+                temperature=0.2
+            )
+            self.llm_logger.info(f"callConsumption: {completion.usage}")
+            return completion.choices[0].message.content
+
+        except Exception as e:
+            self.llm_logger.error(f"❌ OpenAI API call failed: {e}")
+            raise RuntimeError(f"❌ OpenAI API error: {e}")
 
     def get_ans_with_retry(self, message, try_num=5):
 

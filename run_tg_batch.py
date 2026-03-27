@@ -14,17 +14,17 @@ from prompts.optimizer_prompts import BACKWARD_prompt_EVAL, BACKWARD_prompt_PRED
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tiktoken
 
+# Settings
 choose_llm = "gpt-4o-mini"
-_datasets = ["example", "rebel", "webnlg", "wiki-nre"]
-chose_dataset = "example"
-save_dir = ""
-log_rm = ""
+chose_dataset = "lulc_test"
+save_dir = "outputs"
+log_rm = "test1_"
 
 os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"), exist_ok=True)
 
 main_logger = logging.getLogger('main')
 log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", f"{save_dir}{log_rm}{chose_dataset}_inout.log")
-main_handler = UTF8FileHandler(log_file, encoding='utf-8')
+main_handler = UTF8FileHandler(log_file, mode='w', encoding='utf-8')
 main_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 main_logger.addHandler(main_handler)
 main_logger.setLevel(logging.INFO)
@@ -41,6 +41,7 @@ def read_sentences_from_file(read_file):
 
 oie_prompt = """Your task is to transform the given text into a semantic graph in the form of a comprehensive list of triplets.
 The triplets must be in the form of [Entity1, Relationship, Entity2].
+The domain is land use and land cover. Focus on extracting meaningful relationships such as land cover changes, environmental processes, and human activities.
 In your answer, please strictly only include the triplets list and do not include any explanation or apologies.
 """
 suffix_prompt = """
@@ -300,9 +301,9 @@ def main(dataset, llm_model, output_paths):
     kg4 = KG4(dataset, llm_model)
     global oie_prompt
     batch_size = 5
-    with open(output_paths["raw_triplets_path"], 'a', encoding='utf-8') as out_raw, \
-            open(output_paths["entailment_tris_path"], 'a', encoding='utf-8') as out_en, \
-            open(output_paths["final_triplets_path"], 'a', encoding='utf-8') as out_f:
+    with open(output_paths["raw_triplets_path"], 'w', encoding='utf-8') as out_raw, \
+            open(output_paths["entailment_tris_path"], 'w', encoding='utf-8') as out_en, \
+            open(output_paths["final_triplets_path"], 'w', encoding='utf-8') as out_f:
         for b_idx, batch in enumerate(tqdm(batch_iter(kg4.data_sentences, batch_size),
                                          total=(len(kg4.data_sentences) + batch_size - 1) // batch_size)):
             batch_backward_data = []  # loss

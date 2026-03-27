@@ -1,0 +1,148 @@
+2026-03-27 10:21:50,112 - INFO - 
+extracting...
+--------------------------------------------------
+
+2026-03-27 10:21:50,112 - INFO - 
+--------------------------------------------------
+Extract sentence:
+John Doe is a student at National University of Singapore.
+2026-03-27 10:21:52,032 - INFO - 
+Extract Response:
+[['John_Doe', 'isStudentAt', 'National_University_of_Singapore']]
+--------------------------------------------------
+
+2026-03-27 10:21:52,033 - INFO - ### currentProcessingSentence: 'John Doe is a student at National University of Singapore.'
+extractTripletResults[['John_Doe', 'isStudentAt', 'National_University_of_Singapore']]
+2026-03-27 10:21:52,033 - INFO - 
+restoringASingleTriple...
+--------------------------------------------------
+
+2026-03-27 10:21:52,033 - INFO - 
+--------------------------------------------------
+Tri2Txt single_triplet:
+['John_Doe', 'isStudentAt', 'National_University_of_Singapore']
+2026-03-27 10:21:53,151 - INFO - 
+Tri2Txt Response:
+John Doe is a student at the National University of Singapore.
+--------------------------------------------------
+
+2026-03-27 10:21:53,151 - INFO - 
+NLI...
+--------------------------------------------------
+
+2026-03-27 10:21:55,306 - INFO - 
+--------------------------------------------------
+NLI sent:
+raw_sentence='John Doe is a student at National University of Singapore.'
+sent_by_triplet='John Doe is a student at the National University of Singapore.'
+NLI Response:
+{
+  "label": "entailment",
+  "confidence": 0.99,
+  "reasoning": "The premise states that John Doe is a student at National University of Singapore, and the hypothesis is a restatement of this fact with a minor variation in wording, which does not change its meaning."
+}
+--------------------------------------------------
+
+2026-03-27 10:21:55,308 - INFO - 
+backward_1...
+--------------------------------------------------
+
+2026-03-27 10:21:55,308 - INFO - 
+--------------------------------------------------
+Backward_1:
+res_extract=[['John_Doe', 'isStudentAt', 'National_University_of_Singapore']]
+_eval_str="\t['John_Doe', 'isStudentAt', 'National_University_of_Singapore']: entailment\nscore: 1.00"
+
+2026-03-27 10:22:03,339 - INFO - 
+Backward1 Response:
+### Feedback on Relation Triplet Extraction
+
+#### 1. Correctness
+- **Current Status**: The triplet `['John_Doe', 'isStudentAt', 'National_University_of_Singapore']` is evaluated as entailed, indicating correctness.
+- **Improvement Suggestion**: Ensure that the entity names are consistently formatted and accurately represent the subjects and objects. For instance, verify that "John Doe" is indeed a student at "National University of Singapore" through reliable sources to avoid false positives.
+
+#### 2. Completeness
+- **Current Status**: The triplet captures a specific relationship but may lack additional context or related entities.
+- **Improvement Suggestion**: Consider extracting additional triplets that provide more context about John Doe, such as his major, year of study, or any extracurricular activities. For example:
+  - `['John_Doe', 'studies', 'Computer_Science']`
+  - `['John_Doe', 'isInYear', '2nd_Year']`
+  This will enhance the richness of the dataset and provide a more comprehensive view of the subject.
+
+#### 3. Clarity
+- **Current Status**: The triplet is clear but could benefit from standardized naming conventions.
+- **Improvement Suggestion**: Use consistent naming conventions for entities to improve clarity. For example, consider using underscores or camel case uniformly across all entities. Instead of `National_University_of_Singapore`, you might use `National_University_of_Singapore` or `NUS` if it is commonly recognized. This will help in maintaining uniformity and ease of understanding.
+
+### Summary
+To enhance the quality of triplet extraction:
+- **Verify correctness** by cross-referencing entities with reliable sources.
+- **Expand completeness** by extracting additional related triplets that provide context.
+- **Enhance clarity** through consistent naming conventions for entities. 
+
+Implementing these suggestions will improve the overall quality and utility of the extracted triplets.
+--------------------------------------------------
+
+2026-03-27 10:22:03,339 - INFO - 
+--------------------------------------------------
+Backward_2:
+input_sent='John Doe is a student at National University of Singapore.'
+res_extract=[['John_Doe', 'isStudentAt', 'National_University_of_Singapore']]
+backward1='### Feedback on Relation Triplet Extraction\n\n#### 1. Correctness\n- **Current Status**: The triplet `[\'John_Doe\', \'isStudentAt\', \'National_University_of_Singapore\']` is evaluated as entailed, indicating correctness.\n- **Improvement Suggestion**: Ensure that the entity names are consistently formatted and accurately represent the subjects and objects. For instance, verify that "John Doe" is indeed a student at "National University of Singapore" through reliable sources to avoid false positives.\n\n#### 2. Completeness\n- **Current Status**: The triplet captures a specific relationship but may lack additional context or related entities.\n- **Improvement Suggestion**: Consider extracting additional triplets that provide more context about John Doe, such as his major, year of study, or any extracurricular activities. For example:\n  - `[\'John_Doe\', \'studies\', \'Computer_Science\']`\n  - `[\'John_Doe\', \'isInYear\', \'2nd_Year\']`\n  This will enhance the richness of the dataset and provide a more comprehensive view of the subject.\n\n#### 3. Clarity\n- **Current Status**: The triplet is clear but could benefit from standardized naming conventions.\n- **Improvement Suggestion**: Use consistent naming conventions for entities to improve clarity. For example, consider using underscores or camel case uniformly across all entities. Instead of `National_University_of_Singapore`, you might use `National_University_of_Singapore` or `NUS` if it is commonly recognized. This will help in maintaining uniformity and ease of understanding.\n\n### Summary\nTo enhance the quality of triplet extraction:\n- **Verify correctness** by cross-referencing entities with reliable sources.\n- **Expand completeness** by extracting additional related triplets that provide context.\n- **Enhance clarity** through consistent naming conventions for entities. \n\nImplementing these suggestions will improve the overall quality and utility of the extracted triplets.'
+
+2026-03-27 10:22:03,339 - INFO - 
+backward_2...
+--------------------------------------------------
+
+2026-03-27 10:22:05,777 - INFO - 
+Backward2 Response:
+1. **Correctness**: Revise the prompt to include a directive for verifying the factual accuracy of relationships by cross-referencing with reliable sources. For example, add a clause like "Ensure that the relationships are factually accurate and can be verified through reliable sources."
+
+2. **Completeness**: Enhance the prompt by instructing the model to extract not only the primary relationship but also any relevant contextual information or related entities. Include a suggestion such as "Extract additional triplets that provide context about the entities, such as their roles, attributes, or related activities."
+
+3. **Clarity**: Improve the prompt by specifying a standardized naming convention for entities to ensure uniformity. For instance, state "Use consistent naming conventions for entities, such as underscores or camel case, and consider using commonly recognized abbreviations where applicable."
+--------------------------------------------------
+
+2026-03-27 10:22:08,264 - INFO - 
+extracting...
+--------------------------------------------------
+
+2026-03-27 10:22:08,264 - INFO - 
+--------------------------------------------------
+Extract sentence:
+John Doe is a student at National University of Singapore.
+2026-03-27 10:22:09,545 - INFO - 
+Extract Response:
+[['John_Doe', 'isStudentAt', 'National_University_of_Singapore']]
+--------------------------------------------------
+
+2026-03-27 10:22:09,546 - INFO - ### currentProcessingSentence: 'John Doe is a student at National University of Singapore.'
+extractTripletResults[['John_Doe', 'isStudentAt', 'National_University_of_Singapore']]
+2026-03-27 10:22:09,547 - INFO - 
+restoringASingleTriple...
+--------------------------------------------------
+
+2026-03-27 10:22:09,547 - INFO - 
+--------------------------------------------------
+Tri2Txt single_triplet:
+['John_Doe', 'isStudentAt', 'National_University_of_Singapore']
+2026-03-27 10:22:10,005 - INFO - 
+Tri2Txt Response:
+John Doe is a student at the National University of Singapore.
+--------------------------------------------------
+
+2026-03-27 10:22:10,005 - INFO - 
+NLI...
+--------------------------------------------------
+
+2026-03-27 10:22:11,344 - INFO - 
+--------------------------------------------------
+NLI sent:
+raw_sentence='John Doe is a student at National University of Singapore.'
+sent_by_triplet='John Doe is a student at the National University of Singapore.'
+NLI Response:
+{
+  "label": "entailment",
+  "confidence": 0.99,
+  "reasoning": "The premise states that John Doe is a student at National University of Singapore, which is exactly what the hypothesis claims, just with a slight variation in phrasing (the addition of 'the')."
+}
+--------------------------------------------------
+

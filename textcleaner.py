@@ -33,7 +33,7 @@ def clean_text(text):
         flags=re.IGNORECASE
     )
 
-    # Remove isolated structural TEI tokens like "p", "div", "head", "ref"
+    # Remove isolated structural TEI tokens
     text = re.sub(r"\b(div|head|body|ref|p)\b", " ", text, flags=re.IGNORECASE)
 
     # Remove numeric citations like [1], [8, 9]
@@ -53,7 +53,6 @@ def clean_text(text):
     text = re.sub(r"\b@place\s+foot\b", " ", text, flags=re.IGNORECASE)
 
     # Remove dictionary-like keys
-    # Example: 'something':
     text = re.sub(r"'[^']*'\s*:\s*", " ", text)
 
     # Remove serialized-list junk

@@ -1,0 +1,14 @@
+Text: Agriculture in this region has been dominated over the past three decades by cotton production
+Triplets: [['cotton production', 'AFFECTS', 'agricultural land'], ['cotton production', 'OCCURS_DURING', 'three decades']]
+
+Text: After the droughts in the 1970s and 1980s, the observed loss of woody vegetation cover was often considered as irreversible desertification and large parts of the Sahel were designated as degraded land
+Triplets: [['droughts', 'CAUSES', 'loss'], ['loss', 'AFFECTS', 'woody vegetation'], ['woody vegetation', 'CHANGE_TO', 'degraded land'], ['loss', 'LOCATED_IN', 'Sahel'], ['degraded land', 'LOCATED_IN', 'Sahel'], ['droughts', 'OCCURS_DURING', '1970s and 1980s'], ['loss', 'CAUSES', 'desertification'], ['woody vegetation cover', 'CHANGE_TO', 'degraded land']]
+
+Text: Due to the weeding practice, bare soil dominates in cropped fields in the early growing season while herbaceous vegetation continues to grow in fallows and rangelands
+Triplets: [['weeding', 'AFFECTS', 'bare soil'], ['bare soil', 'LOCATED_IN', 'cropped fields'], ['herbaceous vegetation', 'LOCATED_IN', 'fallows'], ['herbaceous vegetation', 'LOCATED_IN', 'rangelands']]
+
+Text: Regular cultivation keeps the soil penetrable and farmers are aware of the benefits of trees in their fields
+Triplets: [['Regular cultivation', 'AFFECTS', 'soil penetrable']]
+
+Text: On the one hand, tree growth and agroforestry on fields have led to an increase of woody cover in proximity to the village
+Triplets: [['tree growth', 'CAUSES', 'increase'], ['increase', 'AFFECTS', 'woody cover'], ['agroforestry', 'CAUSES', 'increase']]
