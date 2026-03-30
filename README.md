@@ -1,6 +1,6 @@
 # Knowledge Restoration-driven Prompt Optimization
 
-This repository contains the code for the paper **"Knowledge Restoration-driven Prompt Optimization: Unlocking LLM Potential on Open-Domain Relational triplet Extraction"** ( https://anonymous.4open.science/r/KRPO-B26W).
+This repository contains the code for the paper **"Knowledge Restoration-driven Prompt Optimization: Unlocking LLM Potential on Open-Domain Relational triplet Extraction"** (https://anonymous.4open.science/r/KRPO-B26W).
 The original code has been extended and adapted for domain-specific applications in Land Use and Land Cover (LULC) knowledge extraction.
 
 ## Overview
@@ -30,6 +30,7 @@ README.md                        # General tools documentation
 requirements.txt                 # Required dependencies for the project
 run_tg_batch.py                  # Script to execute the process
 textcleaner.py                   # Script to pre process the extracted text
+run_lulc_inference.py            # Script to extract LULC triplets from dataset using the optimized prompt
 all_corpus_processed.xlsx        # Text extracted from PDFs using GROBID
 cleaned_dataset.xlsx             # Processed text for evaluation purpose
 ```
