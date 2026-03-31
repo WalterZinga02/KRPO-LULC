@@ -39,10 +39,24 @@ def read_sentences_from_file(read_file):
     return sentences
 
 
-oie_prompt = """Your task is to transform the given text into a semantic graph in the form of a comprehensive list of triplets.
-The triplets must be in the form of [Entity1, Relationship, Entity2].
-The domain is land use and land cover. Focus on extracting meaningful relationships such as land cover changes, environmental processes, and human activities.
-In your answer, please strictly only include the triplets list and do not include any explanation or apologies.
+oie_prompt = """Your task is to extract land use and land cover (LULC) triplets from the given text.
+
+Output must be a list of triplets in the form:
+[Entity1, Relationship, Entity2]
+
+Use only the following relation types:
+CAUSES, AFFECTS, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, FROM_TO, STABLE
+
+Rules:
+- Use only the relation types listed above.
+- Do not invent new relation names.
+- If a relation does not fit the schema, ignore it.
+- Extract only relations explicitly supported by the text.
+- Keep entities concise.
+- Use NONE only when needed by the schema and no explicit target value is available.
+- Output only the final list of triplets.
+
+Do not include explanations or any other text.
 """
 suffix_prompt = """
 Here are some examples:
@@ -172,13 +186,14 @@ class KG4:
             main_logger.error(f"❌ Single sentence by triple NLI result {repr(nli_result)} parseFailed{e}")
             return self.nli_single(raw_sentence, sent_by_triplet)
 
-    def get_simi_rel_by_relcanon(self, rel, relation_text, raw_sent, rel_tri,
-                             threshold1: float = 0.5, threshold2: float = 0.85):
+    def get_simi_rel_by_relcanon(self, rel, relation_text, raw_sent, rel_tri):
         if rel in self.rels.tolist():
             return rel
-        self.add_rel_schema(rel, relation_text)
-        return rel
 
+        main_logger.warning(
+            f"⚠️ Relation out of schema discarded: rel={rel} | relation_text={relation_text}"
+        )
+        return None
     def add_rel_schema(self, rel, rel_des):
         self.rels = np.append(self.rels, rel)
         self.rel_schemas = np.append(self.rel_schemas, rel_des)
@@ -288,6 +303,10 @@ def process_pair(pair, kg4, sent):
 
     rel_def = replace_entities(tri_text, _h, _t)
     simi_rel = kg4.get_simi_rel_by_relcanon(_r, rel_def, sent, tri_)
+
+    if simi_rel is None:
+        return None
+
     final_tri = [_h, simi_rel, _t]
     return final_tri, entailment
 
@@ -301,70 +320,88 @@ def main(dataset, llm_model, output_paths):
     kg4 = KG4(dataset, llm_model)
     global oie_prompt
     batch_size = 5
+
     with open(output_paths["raw_triplets_path"], 'w', encoding='utf-8') as out_raw, \
-            open(output_paths["entailment_tris_path"], 'w', encoding='utf-8') as out_en, \
-            open(output_paths["final_triplets_path"], 'w', encoding='utf-8') as out_f:
-        for b_idx, batch in enumerate(tqdm(batch_iter(kg4.data_sentences, batch_size),
-                                         total=(len(kg4.data_sentences) + batch_size - 1) // batch_size)):
-            batch_backward_data = []  # loss
+         open(output_paths["entailment_tris_path"], 'w', encoding='utf-8') as out_en, \
+         open(output_paths["final_triplets_path"], 'w', encoding='utf-8') as out_f:
+
+        for b_idx, batch in enumerate(
+            tqdm(
+                batch_iter(kg4.data_sentences, batch_size),
+                total=(len(kg4.data_sentences) + batch_size - 1) // batch_size
+            )
+        ):
+            print(f"\n========== BATCH {b_idx + 1} ==========")
+
+            batch_backward_data = []
             batch_sents = []
             batch_score, batch_eval_pairs, batch_extract_triplets = [], [], []
 
             for sid, sent in batch:
-                print(f"sid {sid}")
+                print(f"\n--- Sentence ID: {sid} ---")
                 print("Extract & NLI ...")
+
                 one_sent_score, eval_pairs, extract_triplets = kg4.extract_and_nli_eval(sent, oie_prompt)
-                
-                #debug info
-                print("\n=== INITIAL PROMPT ===")
-                print(oie_prompt)
-                print("\n=== INITIAL TRIPLETS ===")
+
+                # Debug essenziale
+                print("INITIAL TRIPLETS:")
                 print(extract_triplets)
-                print("\n=== INITIAL SCORE ===")
+                print("INITIAL SCORE:")
                 print(one_sent_score)
 
                 batch_score.append(one_sent_score)
                 batch_eval_pairs.append(eval_pairs)
                 batch_extract_triplets.append(extract_triplets)
+
                 print("Backward ...")
                 one_backward = kg4.backward(sent, extract_triplets, eval_pairs, one_sent_score)
                 batch_backward_data.append((sent, extract_triplets, one_backward, one_sent_score))
                 batch_sents.append(sent)
-            print("Optimize ...")
+
+            print("\nOptimize ...")
             oie_prompt_opt = kg4.optimizer_batch(batch_backward_data)
 
-            #debug info
-            print("\n=== OPTIMIZED PROMPT ===")
-            print(oie_prompt_opt)
-
             if "<IMPROVED_PROMPT>" in oie_prompt_opt:
-                oie_prompt_opt = oie_prompt_opt.replace("<IMPROVED_PROMPT>", "").replace("</IMPROVED_PROMPT>", "").strip()
-            print("Optimize Eval ...")
-            bat_score_opt, bat_eval_pairs_opt, bat_extract_triplets_opt = kg4.batch_extract_and_nli_eval(batch_sents,
-                                                                                                         oie_prompt_opt)
-            
-            #debug info
-            print("\n=== OPTIMIZED TRIPLETS ===")
-            print(bat_extract_triplets_opt)
-            print("\n=== OPTIMIZED SCORES ===")
-            print(bat_score_opt)
-            print("\n=== OLD TOTAL SCORE ===", sum(batch_score))
-            print("=== NEW TOTAL SCORE ===", sum(bat_score_opt))
+                oie_prompt_opt = (
+                    oie_prompt_opt
+                    .replace("<IMPROVED_PROMPT>", "")
+                    .replace("</IMPROVED_PROMPT>", "")
+                    .strip()
+                )
 
-            if sum(bat_score_opt) > sum(batch_score):
+            print("Optimize Eval ...")
+            bat_score_opt, bat_eval_pairs_opt, bat_extract_triplets_opt = kg4.batch_extract_and_nli_eval(
+                batch_sents, oie_prompt_opt
+            )
+
+            old_total = sum(batch_score)
+            new_total = sum(bat_score_opt)
+
+            print(f"OLD TOTAL SCORE: {old_total}")
+            print(f"NEW TOTAL SCORE: {new_total}")
+
+            if new_total > old_total:
                 oie_prompt = oie_prompt_opt
-                print(f"# After sample {sid}, OIE Prompt updated:\n{oie_prompt_opt}")
+                print("\n### PROMPT UPDATED ###")
+                print(oie_prompt)
+                print("OPTIMIZED TRIPLETS:")
+                print(bat_extract_triplets_opt)
+                print("OPTIMIZED SCORES:")
+                print(bat_score_opt)
+
                 batch_eval_pairs, batch_extract_triplets = bat_eval_pairs_opt, bat_extract_triplets_opt
+            else:
+                print("\nPrompt not updated.")
 
             print("Rel normalization & Write...")
             for _eval_pairs, _extract_triplets, _sent in zip(batch_eval_pairs, batch_extract_triplets, batch_sents):
                 max_workers = max(1, min(os.cpu_count() or 4, len(_eval_pairs)))
-                results = []
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     results = list(executor.map(lambda p: process_pair(p, kg4, _sent), _eval_pairs))
 
                 final_triplets = []
                 entailment_triplets = []
+
                 for result in results:
                     if result:
                         final_tri, entailment = result
@@ -388,6 +425,7 @@ if __name__ == '__main__':
         "entailment_tris_path": f"./{save_dir}/{chose_dataset}/only_entailment.txt",
         "final_triplets_path": f"./{save_dir}/{chose_dataset}/final_triplets.txt",
     }
+
     for path_key, path_value in save_paths.items():
         dir_path = os.path.dirname(path_value)
         os.makedirs(dir_path, exist_ok=True)

@@ -9,7 +9,7 @@ from typing import List, Optional
 from openai import OpenAI
 
 
-# CONFIG
+# CONFIG 
 MODEL_NAME = "gpt-4o-mini"
 
 DATASET_PATH = "datasets/lulc_dataset.txt"
@@ -18,7 +18,6 @@ OUTPUT_DIR = "outputs/lulc_full_inference"
 RAW_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "raw_triplets.txt")
 FINAL_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "final_triplets.txt")
 ERRORS_PATH = os.path.join(OUTPUT_DIR, "parsing_errors.txt")
-
 FEW_SHOT_PATH = "./prompts/few_shot_examples/lulc_dataset/oie_few_shot_examples.txt"
 
 # FINAL PROMPT
@@ -41,24 +40,21 @@ Now please extract triplets from the following text.
 Text: {input_text}
 Triplets: """
 
-
+# Check that required input files (dataset and few-shot examples) exist before execution
 def validate_input_paths() -> None:
-    required_files = [DATASET_PATH]
-    if FEW_SHOT_PATH:
-        required_files.append(FEW_SHOT_PATH)
-
+    required_files = [DATASET_PATH, FEW_SHOT_PATH]
     for path in required_files:
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Required input file not found: {path}")
 
-
+# Initialize OpenAI client using API key from environment variables
 def get_client() -> OpenAI:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable is not set.")
     return OpenAI(api_key=api_key)
 
-
+# Read dataset file and return a list of non-empty sentences (one per line)
 def read_sentences(path: str) -> List[str]:
     sentences: List[str] = []
     with open(path, "r", encoding="utf-8") as f:
@@ -68,21 +64,21 @@ def read_sentences(path: str) -> List[str]:
                 sentences.append(s)
     return sentences
 
-
+# Load few-shot examples from file as a single string (used in prompt construction)
 def read_few_shot(path: Optional[str]) -> str:
     if not path:
         return ""
     with open(path, "r", encoding="utf-8") as f:
         return f.read().strip()
 
-
+# Build full prompt by combining base instructions, few-shot examples, and input sentence
 def build_prompt(sentence: str, few_shot_examples: str) -> str:
     return OIE_PROMPT + SUFFIX_PROMPT.format(
         few_shot_examples=few_shot_examples,
         input_text=sentence
     )
 
-
+# Send prompt to LLM with retry logic and exponential backoff, return response text
 def call_llm(client: OpenAI, prompt: str, model_name: str, max_retries: int = 5) -> Optional[str]:
     for attempt in range(max_retries):
         try:
@@ -100,7 +96,7 @@ def call_llm(client: OpenAI, prompt: str, model_name: str, max_retries: int = 5)
             time.sleep(wait_s)
     return None
 
-
+# Extract the list-like structure (triplets) from model response using regex if needed
 def extract_list_block(text: str) -> str:
     text = text.strip()
 
@@ -112,7 +108,7 @@ def extract_list_block(text: str) -> str:
         raise ValueError("No valid list block found in model response.")
     return match.group(0)
 
-
+# Parse and validate triplets from model response into a clean list of [head, relation, tail]
 def parse_triplets(text: str) -> List[List[str]]:
     list_block = extract_list_block(text)
     parsed = ast.literal_eval(list_block)
@@ -131,16 +127,16 @@ def parse_triplets(text: str) -> List[List[str]]:
 
     return clean_triplets
 
-
+# Create output directory if it does not already exist
 def ensure_output_dir(path: str) -> None:
     Path(path).mkdir(parents=True, exist_ok=True)
 
-
+# Append a list of triplets as a JSON-formatted line to a text file
 def append_triplets_txt(path: str, triplets: List[List[str]]) -> None:
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(triplets, ensure_ascii=False) + "\n")
 
-
+# Append error information to a log file
 def append_error_txt(path: str, record: dict) -> None:
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -151,7 +147,6 @@ def main() -> None:
     validate_input_paths()
     ensure_output_dir(OUTPUT_DIR)
 
-    # sovrascrive i file a ogni run
     for p in [RAW_OUTPUT_PATH, FINAL_OUTPUT_PATH, ERRORS_PATH]:
         with open(p, "w", encoding="utf-8"):
             pass
@@ -181,11 +176,7 @@ def main() -> None:
 
         try:
             triplets = parse_triplets(response)
-
-            # Raw output nel formato framework
             append_triplets_txt(RAW_OUTPUT_PATH, triplets)
-
-            # Final output: per ora coincide con raw
             append_triplets_txt(FINAL_OUTPUT_PATH, triplets)
 
         except Exception as e:

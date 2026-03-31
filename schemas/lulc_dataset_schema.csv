@@ -1,12 +1,10 @@
 CAUSES,indicates that the subject causes or drives the object
 AFFECTS,indicates that the subject affects or impacts the object
-CHANGE_TO,indicates that one land use or land cover type is transformed into another
+CONVERTED_TO,indicates that one land use or land cover type is transformed into another
 LOCATED_IN,indicates that the subject is located in a geographical area
-OCCURS_IN,indicates that the subject occurs within a spatial context
 OCCURS_DURING,indicates that the subject occurs during a temporal period
-MEASURES,indicates that the subject is associated with a quantitative measure
-INCREASES,indicates that the subject increases over time
-INCREASES_BY,indicates the magnitude of increase of the subject
-DECREASES,indicates that the subject decreases over time
-DECREASES_BY,indicates the magnitude of decrease of the subject
-FROM_TO,indicates a transition from one state or value to another
+INCREASES,indicates that the subject increases over time (qualitative or temporal)
+INCREASED_BY,indicates the magnitude of increase of the subject
+DECREASES,indicates that the subject decreases over time (qualitative or temporal)
+DECREASED_BY,indicates the magnitude of decrease of the subject
+FROM_TO,indicates a change of the subject from an initial value to a final value
