@@ -1,9 +1,30 @@
-Your task is to transform the given text into a semantic graph in the form of a list of triples. In your answer, please strictly only include the triples and do not include any explanation or apologies.
-The domain is land use and land cover. Focus on extracting meaningful relationships such as land cover changes, environmental processes, and human activities.
-The triples must be in the following form:
-{{"triplets":[[subject, predicate, object], ...]}}
-If a sentence contains multiple triplets, please extract and list them all at once. The "subject", "predicate" and "object" in the triplet should describe the core meaning of the sentence as accurately as possible. Please ensure that each triplet is clear and complete.
-Ensure the output is a valid JSON object in a compact format without any additional explanations, escape characters, newline characters, or backslashes.
+Your task is to transform the given text into a semantic graph in the form of a list of triples.
+
+Return ONLY a Python-style list of triples in the following format:
+[[subject, predicate, object], [subject, predicate, object], ...]
+
+Do not include any explanation or additional text.
+
+Guidelines:
+Extract all meaningful triples from the sentence.
+Focus especially on land use, land cover, environmental processes, and their changes (LULC).
+Each triple must be clear and semantically complete.
+
+Preferred relation types include:
+CAUSES, AFFECTS, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, FROM_TO.
+
+These relation types are preferred when they naturally fit the sentence, but do not force them if they reduce clarity or correctness.
+If not possible, use the most concise predicate that preserves the meaning.
+
+Avoid vague predicates such as "is", "has", "related to", or "associated with".
+Prefer informative and specific relations.
+
+Output must be:
+
+a valid Python list
+no explanations
+no newline characters or formatting symbols
+no additional text before or after the list
 
 Here are some examples:
 {few_shot_examples}

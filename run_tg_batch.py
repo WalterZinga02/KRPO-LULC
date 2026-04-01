@@ -135,6 +135,7 @@ class KG4:
         }
 
         raw_rel_mapping = {
+
             # CAUSES
             "causes": "CAUSES",
             "cause": "CAUSES",
@@ -144,12 +145,11 @@ class KG4:
             "results in": "CAUSES",
             "result in": "CAUSES",
             "drives": "CAUSES",
-            "driven by": "CAUSES",
             "induces": "CAUSES",
             "triggers": "CAUSES",
             "contributes to": "CAUSES",
 
-            # AFFECTS
+            # AFFECTS (più conservativo)
             "affects": "AFFECTS",
             "affect": "AFFECTS",
             "influences": "AFFECTS",
@@ -158,8 +158,10 @@ class KG4:
             "impact": "AFFECTS",
             "modifies": "AFFECTS",
             "alters": "AFFECTS",
+            "limits": "AFFECTS",
+            "limit": "AFFECTS",
 
-            # CONVERTED_TO
+            # CONVERTED_TO (solo conversioni reali)
             "converted to": "CONVERTED_TO",
             "convert to": "CONVERTED_TO",
             "conversion to": "CONVERTED_TO",
@@ -168,23 +170,21 @@ class KG4:
             "changed to": "CONVERTED_TO",
             "change to": "CONVERTED_TO",
             "turned into": "CONVERTED_TO",
-            "replaced by": "CONVERTED_TO",
-            "replacement of": "CONVERTED_TO",
+            "converted into": "CONVERTED_TO",
 
-            # LOCATED_IN
+            # LOCATED_IN (solo spaziale reale)
             "located in": "LOCATED_IN",
             "within": "LOCATED_IN",
             "inside": "LOCATED_IN",
-            "across": "LOCATED_IN",
-            "throughout": "LOCATED_IN",
             "in the region of": "LOCATED_IN",
             "in the area of": "LOCATED_IN",
+            "found in": "LOCATED_IN",
+            "present in": "LOCATED_IN",
 
-            # OCCURS_DURING
+            # OCCURS_DURING (temporale chiaro)
             "during": "OCCURS_DURING",
             "over": "OCCURS_DURING",
             "between": "OCCURS_DURING",
-            "through": "OCCURS_DURING",
             "over the period": "OCCURS_DURING",
             "within the period": "OCCURS_DURING",
 
@@ -206,13 +206,12 @@ class KG4:
             "expansion": "INCREASES",
             "expanded": "INCREASES",
 
-            # INCREASED_BY
+            # INCREASED_BY (solo quantità)
             "increased by": "INCREASED_BY",
             "increase by": "INCREASED_BY",
             "rose by": "INCREASED_BY",
             "growth of": "INCREASED_BY",
             "increase of": "INCREASED_BY",
-            "gain of": "INCREASED_BY",
 
             # DECREASES
             "decrease": "DECREASES",
@@ -229,7 +228,7 @@ class KG4:
             "shrink": "DECREASES",
             "shrinks": "DECREASES",
 
-            # DECREASED_BY
+            # DECREASED_BY (solo quantità)
             "decreased by": "DECREASED_BY",
             "decrease by": "DECREASED_BY",
             "declined by": "DECREASED_BY",
@@ -237,14 +236,13 @@ class KG4:
             "reduction of": "DECREASED_BY",
             "loss of": "DECREASED_BY",
 
-            # FROM_TO
-            "from to": "FROM_TO",
+            # FROM_TO (transizioni reali)
             "ranged from": "FROM_TO",
             "changed from": "FROM_TO",
             "varied from": "FROM_TO",
         }
 
-        # MODIFICA: mapping normalizzato
+        
         self.rel_mapping = {
             self.normalize_relation(k): v
             for k, v in raw_rel_mapping.items()
@@ -257,23 +255,127 @@ class KG4:
         rel = re.sub(r"\s+", " ", rel)
         return rel
 
-    # MODIFICA: gestione minima dei casi ambigui
+    # MODIFICA: gestione più conservativa dei casi ambigui
     def handle_ambiguous_cases(self, rel_norm, rel_tri):
         _h, _r, _t = rel_tri
-        t = str(_t).lower()
+        t = str(_t).lower().strip()
 
-        # caso "in"
+        # Caso "in": distinguere tempo da luogo
         if rel_norm == "in":
-            if any(x in t for x in ["year", "period", "century", "199", "200", "201", "202"]):
+            temporal_markers = [
+                "year", "years", "period", "century", "season",
+                "january", "february", "march", "april", "may", "june",
+                "july", "august", "september", "october", "november", "december",
+                "spring", "summer", "autumn", "fall", "winter"
+            ]
+
+            # pattern tipo 1984, 2001, 1950-1998, ecc.
+            if (
+                any(x in t for x in temporal_markers)
+                or re.search(r"\b(18|19|20)\d{2}\b", t)
+                or re.search(r"\b(18|19|20)\d{2}\s*[-–]\s*(18|19|20)\d{2}\b", t)
+            ):
                 return "OCCURS_DURING"
+
             return "LOCATED_IN"
 
-        # caso "from / to" come transizione di valore
+        # Caso FROM_TO: accettarlo solo se l'oggetto contiene davvero una transizione
         if "from" in rel_norm or "to" in rel_norm:
-            if any(x in t for x in ["%", " to ", "-", "–"]):
+            has_explicit_transition = (
+                re.search(r"\bfrom\b.*\bto\b", t)
+                or re.search(r"\b\d+(\.\d+)?\s*(%|km²|ha|hectares)?\s*(to|[-–])\s*\d+(\.\d+)?\s*(%|km²|ha|hectares)?\b", t)
+            )
+
+            if has_explicit_transition:
                 return "FROM_TO"
 
+            # se non c'è una vera transizione, non mappare
+            return None
+
         return None
+    
+    # MODIFICA: riconosce valori temporali
+    def looks_temporal(self, text: str) -> bool:
+        t = text.lower().strip()
+        temporal_words = [
+            "year", "years", "period", "season", "month", "months",
+            "spring", "summer", "autumn", "fall", "winter",
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december",
+            "before", "after", "during", "since"
+        ]
+        return (
+            any(w in t for w in temporal_words)
+            or re.search(r"\b(18|19|20)\d{2}\b", t) is not None
+            or re.search(r"\b(18|19|20)\d{2}\s*[-–]\s*(18|19|20)\d{2}\b", t) is not None
+            or "second period" in t
+            or "first period" in t
+        )
+    
+    # MODIFICA: riconosce quantità/misure
+    def looks_quantitative(self, text: str) -> bool:
+        t = text.lower().strip()
+        return (
+            re.search(r"\b\d+(\.\d+)?\b", t) is not None
+            or "%" in t
+            or "km²" in t
+            or "km2" in t
+            or "ha" in t
+            or "hectare" in t
+            or "hectares" in t
+            or "half" in t
+            or "quarter" in t
+        )
+    
+    # MODIFICA: riconosce vere transizioni
+    def looks_transition(self, text: str) -> bool:
+        t = text.lower().strip()
+        return (
+            re.search(r"\bfrom\b.*\bto\b", t) is not None
+            or re.search(r"\b\d+(\.\d+)?\s*(%|km²|km2|ha|hectares)?\s*(to|[-–])\s*\d+(\.\d+)?\s*(%|km²|km2|ha|hectares)?\b", t) is not None
+        )
+    
+    # MODIFICA: filtro semantico finale leggero
+    def is_valid_triplet(self, head: str, rel: str, tail: str) -> bool:
+        h = head.lower().strip()
+        t = tail.lower().strip()
+
+        # relazioni temporali
+        if rel == "OCCURS_DURING":
+            return self.looks_temporal(t)
+
+        # relazioni quantitative
+        if rel in {"INCREASED_BY", "DECREASED_BY"}:
+            if not self.looks_quantitative(t):
+                return False
+            # scarta casi palesemente sbagliati
+            bad_quant_targets = ["scarce", "observed loss", "fertility", "size"]
+            if any(x == t for x in bad_quant_targets):
+                return False
+            return True
+
+        # transizioni
+        if rel == "FROM_TO":
+            return self.looks_transition(t)
+
+        # conversioni
+        if rel == "CONVERTED_TO":
+            # scarta aggettivi/stati non entità
+            bad_convert_targets = ["irreversible", "scarce", "defunct", "marginal"]
+            if t in bad_convert_targets:
+                return False
+            return True
+
+        # location: evita valori chiaramente temporali o quantitativi
+        if rel == "LOCATED_IN":
+            if self.looks_temporal(t):
+                return False
+            if self.looks_quantitative(t):
+                return False
+            return True
+
+        # AFFECTS / CAUSES / INCREASES / DECREASES di default
+        return True
 
     # MODIFICA IMPORTANTE: estrazione RAW, senza filtraggio finale schema
     # Questo mantiene KRPO coerente: extraction/NLI/optimization lavorano sui raw triplets.
@@ -568,8 +670,15 @@ def process_pair(pair, kg4, sent):
     rel_def = replace_entities(tri_text, _h, _t)
     simi_rel = kg4.get_simi_rel_by_relcanon(_r, rel_def, sent, tri_)
 
-    # Se la relazione non è mappabile allo schema, la tripla viene scartata
+    # Se la relazione non è mappabile allo schema, scarta
     if simi_rel is None:
+        return None
+
+    # MODIFICA: filtro semantico finale
+    if not kg4.is_valid_triplet(_h, simi_rel, _t):
+        main_logger.warning(
+            f"⚠️ Invalid semantic triplet discarded: [{_h}, {simi_rel}, {_t}]"
+        )
         return None
 
     final_tri = [_h, simi_rel, _t]
