@@ -39,24 +39,33 @@ def read_sentences_from_file(read_file):
     return sentences
 
 
-oie_prompt = """Your task is to extract land use and land cover (LULC) triplets from the given text.
+oie_prompt = """Your task is to transform the given text into a semantic graph in the form of a list of triples.
 
-Output must be a list of triplets in the form:
-[Entity1, Relationship, Entity2]
+Return ONLY a Python-style list of triples in the following format:
+[[subject, predicate, object], [subject, predicate, object], ...]
 
-Use only the following relation types:
-CAUSES, AFFECTS, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, FROM_TO, STABLE
+Do not include any explanation or additional text.
 
-Rules:
-- Use only the relation types listed above.
-- Do not invent new relation names.
-- If a relation does not fit the schema, ignore it.
-- Extract only relations explicitly supported by the text.
-- Keep entities concise.
-- Use NONE only when needed by the schema and no explicit target value is available.
-- Output only the final list of triplets.
+Guidelines:
+Extract all meaningful triples from the sentence.
+Focus especially on land use, land cover, environmental processes, and their changes (LULC).
+Each triple must be clear and semantically complete.
 
-Do not include explanations or any other text.
+Preferred relation types include:
+CAUSES, AFFECTS, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, FROM_TO.
+
+These relation types are preferred when they naturally fit the sentence, but do not force them if they reduce clarity or correctness.
+If not possible, use the most concise predicate that preserves the meaning.
+
+Avoid vague predicates such as "is", "has", "related to", or "associated with".
+Prefer informative and specific relations.
+
+Output must be:
+
+a valid Python list
+no explanations
+no newline characters or formatting symbols
+no additional text before or after the list
 """
 suffix_prompt = """
 Here are some examples:
@@ -69,34 +78,208 @@ Triplets: """
 
 class KG4:
     def __init__(self, this_dataset, this_llm):
-        llm_loger = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"./logs/{save_dir}{log_rm}{chose_dataset}_log.log")
+        llm_loger = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            f"./logs/{save_dir}{log_rm}{chose_dataset}_log.log"
+        )
         self.llm = LLMInvoker(this_llm, llm_loger)
         self.data_sentences = read_sentences_from_file(f"./datasets/{this_dataset}.txt")
-        # --- prompt txt ---,
-        self.extract_few_shot_examples = open(f"./prompts/few_shot_examples/{this_dataset}/oie_few_shot_examples.txt",
-                                              encoding='utf-8').read()
 
-        self.triplet2text_prompt_template = open("./prompts/main_prompt/triplet2text.txt", encoding='utf-8').read()
-        self.nli_few_shot_examples = open("./prompts/few_shot_examples/NLI.txt", encoding='utf-8').read()
-        self.nli_prompt_template = open("./prompts/main_prompt/NLI.txt", encoding='utf-8').read()
+        # --- prompt txt ---
+        self.extract_few_shot_examples = open(
+            f"./prompts/few_shot_examples/{this_dataset}/oie_few_shot_examples.txt",
+            encoding='utf-8'
+        ).read()
+
+        self.triplet2text_prompt_template = open(
+            "./prompts/main_prompt/triplet2text.txt",
+            encoding='utf-8'
+        ).read()
+
+        self.nli_few_shot_examples = open(
+            "./prompts/few_shot_examples/NLI.txt",
+            encoding='utf-8'
+        ).read()
+
+        self.nli_prompt_template = open(
+            "./prompts/main_prompt/NLI.txt",
+            encoding='utf-8'
+        ).read()
 
         self.backward_1_template = BACKWARD_prompt_EVAL
         self.backward_2_template = BACKWARD_prompt_PRED
         self.optimizer_examples = OPTIMIZER_EXAMPLE_TEMPLATE
         self.optimizer_template = OPTIMIZER_prompt
 
-        self.rel_simi_choice_template = open("./prompts/main_prompt/rel_simi_choice.txt", encoding='utf-8').read()
+        self.rel_simi_choice_template = open(
+            "./prompts/main_prompt/rel_simi_choice.txt",
+            encoding='utf-8'
+        ).read()
 
         local_rels = pd.read_csv(
             f"./schemas/{this_dataset}_schema.csv",
             header=None,
             names=["name", "schema"]
         )
+
         self.rels = local_rels["name"].to_numpy()
         self.rel_schemas = local_rels["schema"].to_numpy()
 
+        # MODIFICA: set per lookup veloce
+        self.rels_set = set(self.rels.tolist())
+
+        # MODIFICA: schema normalizzato precomputato
+        self.schema_norm = {
+            self.normalize_relation(r): r
+            for r in self.rels_set
+        }
+
+        raw_rel_mapping = {
+            # CAUSES
+            "causes": "CAUSES",
+            "cause": "CAUSES",
+            "caused by": "CAUSES",
+            "leads to": "CAUSES",
+            "lead to": "CAUSES",
+            "results in": "CAUSES",
+            "result in": "CAUSES",
+            "drives": "CAUSES",
+            "driven by": "CAUSES",
+            "induces": "CAUSES",
+            "triggers": "CAUSES",
+            "contributes to": "CAUSES",
+
+            # AFFECTS
+            "affects": "AFFECTS",
+            "affect": "AFFECTS",
+            "influences": "AFFECTS",
+            "influence": "AFFECTS",
+            "impacts": "AFFECTS",
+            "impact": "AFFECTS",
+            "modifies": "AFFECTS",
+            "alters": "AFFECTS",
+
+            # CONVERTED_TO
+            "converted to": "CONVERTED_TO",
+            "convert to": "CONVERTED_TO",
+            "conversion to": "CONVERTED_TO",
+            "transformed into": "CONVERTED_TO",
+            "transform into": "CONVERTED_TO",
+            "changed to": "CONVERTED_TO",
+            "change to": "CONVERTED_TO",
+            "turned into": "CONVERTED_TO",
+            "replaced by": "CONVERTED_TO",
+            "replacement of": "CONVERTED_TO",
+
+            # LOCATED_IN
+            "located in": "LOCATED_IN",
+            "within": "LOCATED_IN",
+            "inside": "LOCATED_IN",
+            "across": "LOCATED_IN",
+            "throughout": "LOCATED_IN",
+            "in the region of": "LOCATED_IN",
+            "in the area of": "LOCATED_IN",
+
+            # OCCURS_DURING
+            "during": "OCCURS_DURING",
+            "over": "OCCURS_DURING",
+            "between": "OCCURS_DURING",
+            "through": "OCCURS_DURING",
+            "over the period": "OCCURS_DURING",
+            "within the period": "OCCURS_DURING",
+
+            # INCREASES
+            "increase": "INCREASES",
+            "increases": "INCREASES",
+            "increasing": "INCREASES",
+            "grow": "INCREASES",
+            "grows": "INCREASES",
+            "growing": "INCREASES",
+            "grew": "INCREASES",
+            "growth": "INCREASES",
+            "rise": "INCREASES",
+            "rises": "INCREASES",
+            "rising": "INCREASES",
+            "rose": "INCREASES",
+            "expand": "INCREASES",
+            "expands": "INCREASES",
+            "expansion": "INCREASES",
+            "expanded": "INCREASES",
+
+            # INCREASED_BY
+            "increased by": "INCREASED_BY",
+            "increase by": "INCREASED_BY",
+            "rose by": "INCREASED_BY",
+            "growth of": "INCREASED_BY",
+            "increase of": "INCREASED_BY",
+            "gain of": "INCREASED_BY",
+
+            # DECREASES
+            "decrease": "DECREASES",
+            "decreases": "DECREASES",
+            "decreasing": "DECREASES",
+            "decline": "DECREASES",
+            "declines": "DECREASES",
+            "declining": "DECREASES",
+            "declined": "DECREASES",
+            "reduce": "DECREASES",
+            "reduces": "DECREASES",
+            "reduction": "DECREASES",
+            "loss": "DECREASES",
+            "shrink": "DECREASES",
+            "shrinks": "DECREASES",
+
+            # DECREASED_BY
+            "decreased by": "DECREASED_BY",
+            "decrease by": "DECREASED_BY",
+            "declined by": "DECREASED_BY",
+            "reduced by": "DECREASED_BY",
+            "reduction of": "DECREASED_BY",
+            "loss of": "DECREASED_BY",
+
+            # FROM_TO
+            "from to": "FROM_TO",
+            "ranged from": "FROM_TO",
+            "changed from": "FROM_TO",
+            "varied from": "FROM_TO",
+        }
+
+        # MODIFICA: mapping normalizzato
+        self.rel_mapping = {
+            self.normalize_relation(k): v
+            for k, v in raw_rel_mapping.items()
+        }
+
+    # MODIFICA: normalizzazione robusta per relazioni
+    def normalize_relation(self, rel: str) -> str:
+        rel = rel.lower().strip()
+        rel = rel.replace("_", " ")
+        rel = re.sub(r"\s+", " ", rel)
+        return rel
+
+    # MODIFICA: gestione minima dei casi ambigui
+    def handle_ambiguous_cases(self, rel_norm, rel_tri):
+        _h, _r, _t = rel_tri
+        t = str(_t).lower()
+
+        # caso "in"
+        if rel_norm == "in":
+            if any(x in t for x in ["year", "period", "century", "199", "200", "201", "202"]):
+                return "OCCURS_DURING"
+            return "LOCATED_IN"
+
+        # caso "from / to" come transizione di valore
+        if "from" in rel_norm or "to" in rel_norm:
+            if any(x in t for x in ["%", " to ", "-", "–"]):
+                return "FROM_TO"
+
+        return None
+
+    # MODIFICA IMPORTANTE: estrazione RAW, senza filtraggio finale schema
+    # Questo mantiene KRPO coerente: extraction/NLI/optimization lavorano sui raw triplets.
     def sentence_extract_triplets(self, sentence, _oie_prompt):
         main_logger.info(f"\nextracting...\n{'-' * 50}\n")
+
         extract_prompt = _oie_prompt + suffix_prompt.format_map({
             'few_shot_examples': self.extract_few_shot_examples,
             'input_text': sentence
@@ -104,50 +287,66 @@ class KG4:
 
         for retry_count in range(3):
             extract_res = None
+
             for llm_retry in range(3):
                 main_logger.info(f"\n{'-' * 50}\nExtract sentence:\n{sentence}")
                 extract_res = self.llm.llm_chat_response(extract_prompt)
                 main_logger.info(f"\nExtract Response:\n{extract_res}\n{'-' * 50}\n")
+
                 if extract_res is not None:
                     break
                 time.sleep(1)
 
             if extract_res is None:
-                main_logger.error("❌ LLM  - None, max tries reached")
+                main_logger.error("❌ LLM - None, max tries reached")
                 return []
 
             try:
                 extract_res = extract_res.strip()
-                if not (extract_res.startswith('[') and extract_res.endswith(']')):
-                    match = re.search(r"\[.*\]", extract_res, re.DOTALL)
-                    if not match:
-                        raise ValueError("No valid list found in response")
-                    extract_res = match.group(0)
-                extract_res_list = ast.literal_eval(extract_res)
-            except (ValueError, SyntaxError) as e:
-                main_logger.error(f"❌ extract res {repr(extract_res)} fail：{e}")
-                main_logger.warning(f"⚠️ json error {retry_count + 1} try: {e}")
+
+                # Supporta sia {"triplets": [...]} sia lista pura [...]
+                if extract_res.startswith("{"):
+                    parsed = json.loads(extract_res)
+                    extract_res_list = parsed.get("triplets", [])
+                else:
+                    if not (extract_res.startswith('[') and extract_res.endswith(']')):
+                        match = re.search(r"\[.*\]", extract_res, re.DOTALL)
+                        if not match:
+                            raise ValueError("No valid list found in response")
+                        extract_res = match.group(0)
+
+                    extract_res_list = ast.literal_eval(extract_res)
+
+            except Exception as e:
+                main_logger.error(f"❌ extract res parse fail: {e} | raw={repr(extract_res)}")
+                main_logger.warning(f"⚠️ Parse error {retry_count + 1}: {e}")
                 time.sleep(1)
                 continue
 
             try:
+                valid_triplets = []
                 for tri in extract_res_list:
-                    if len(tri) != 3:
-                        raise ValueError("extract res not triplet")
+                    if not isinstance(tri, (list, tuple)) or len(tri) != 3:
+                        continue
+
                     head, relation, tail = tri
                     if not all(isinstance(x, str) for x in (head, relation, tail)):
-                        raise ValueError("triplets must be strings")
-            except (TypeError, ValueError, KeyError) as e:
-                main_logger.warning(
-                    f"⚠️ The triple is in the wrong format and is in progress. {retry_count + 1} try: {e}")
-                time.sleep(1)
+                        continue
+
+                    # MODIFICA: qui NON facciamo mapping/filtro schema,
+                    # lasciamo passare le raw triplets per la fase KRPO.
+                    valid_triplets.append([head, relation, tail])
+
+            except Exception as e:
+                main_logger.warning(f"⚠️ Triplet validation error: {e}")
                 continue
 
             main_logger.info(
-                f"### currentProcessingSentence: {repr(sentence)}\nextractTripletResults{extract_res_list}")
-            return extract_res_list
+                f"### currentProcessingSentence: {repr(sentence)}\nextractTripletResults {valid_triplets}"
+            )
+            return valid_triplets
 
-        main_logger.error("❌ Maximum number of retries reached and no valid triplet is obtained")
+        main_logger.error("❌ Maximum retries reached, no valid triplets")
         return []
 
     def triplet_to_text(self, single_triplet):
@@ -173,7 +372,8 @@ class KG4:
                 nli_result = response
 
         main_logger.info(
-            f"\n{'-' * 50}\nNLI sent:\n{raw_sentence=}\n{sent_by_triplet=}\nNLI Response:\n{nli_result}\n{'-' * 50}\n")
+            f"\n{'-' * 50}\nNLI sent:\n{raw_sentence=}\n{sent_by_triplet=}\nNLI Response:\n{nli_result}\n{'-' * 50}\n"
+        )
 
         try:
             json_match = re.search(r'```json\s*(.*?)```', nli_result, flags=re.DOTALL)
@@ -183,17 +383,37 @@ class KG4:
             nli_res = json.loads(nli_result.replace('\n', ''))
             return nli_res
         except (ValueError, SyntaxError) as e:
-            main_logger.error(f"❌ Single sentence by triple NLI result {repr(nli_result)} parseFailed{e}")
+            main_logger.error(f"❌ Single sentence by triple NLI result {repr(nli_result)} parseFailed {e}")
             return self.nli_single(raw_sentence, sent_by_triplet)
 
+    # MODIFICA IMPORTANTE: mapping/filtro schema finale
+    # Questo viene usato solo nel post-processing, non durante l'estrazione raw.
     def get_simi_rel_by_relcanon(self, rel, relation_text, raw_sent, rel_tri):
-        if rel in self.rels.tolist():
-            return rel
+        rel_norm = self.normalize_relation(rel)
+
+        # match diretto sullo schema, robusto a maiuscole/underscore/spazi
+        if rel_norm in self.schema_norm:
+            return self.schema_norm[rel_norm]
+
+        # mapping sinonimi/varianti
+        for key in sorted(self.rel_mapping.keys(), key=len, reverse=True):
+            if key in rel_norm:
+                mapped = self.rel_mapping[key]
+                if mapped in self.rels_set:
+                    main_logger.info(f"🔁 Mapped relation: {rel} -> {mapped}")
+                    return mapped
+
+        # gestione casi ambigui
+        special = self.handle_ambiguous_cases(rel_norm, rel_tri)
+        if special is not None:
+            return special
 
         main_logger.warning(
-            f"⚠️ Relation out of schema discarded: rel={rel} | relation_text={relation_text}"
+            f"⚠️ Relation out of schema discarded: rel={rel} | norm={rel_norm} | sentence={raw_sent}"
         )
         return None
+
+    # Lascio il metodo, anche se ora non stiamo espandendo lo schema
     def add_rel_schema(self, rel, rel_des):
         self.rels = np.append(self.rels, rel)
         self.rel_schemas = np.append(self.rel_schemas, rel_des)
@@ -202,6 +422,7 @@ class KG4:
         got_triplets = self.sentence_extract_triplets(one_sent, extrac_prompt)
         if len(got_triplets) == 0:
             return 0, [], []
+
         score = 0.0
         eval_pairs = []
 
@@ -222,6 +443,7 @@ class KG4:
                     score += 1.0
                 elif tt_entailment == "contradiction":
                     score -= 0.5
+
         this_score = score / len(got_triplets)
         return this_score, eval_pairs, got_triplets
 
@@ -239,26 +461,43 @@ class KG4:
         _eval_strs = [f"\t{str(_tri)}: {_entailment}" for _tri, _text, _entailment in res_eval]
         _eval_str = "\n".join(_eval_strs)
         _eval_str += f"\nscore: {res_score:.2f}"
-        optimize_1_prompt = self.backward_1_template.replace("__predict_triplets__", str(res_extract)).replace(
-            "__evaluate_result__", _eval_str)
+
+        optimize_1_prompt = self.backward_1_template.replace(
+            "__predict_triplets__", str(res_extract)
+        ).replace(
+            "__evaluate_result__", _eval_str
+        )
+
         main_logger.info(f"\nbackward_1...\n{'-' * 50}\n")
         main_logger.info(f"\n{'-' * 50}\nBackward_1:\n{res_extract=}\n{_eval_str=}\n")
+
         optimize_1 = None
         while optimize_1 is None:
             optimize_1 = self.llm.llm_chat_response(optimize_1_prompt)
+
         main_logger.info(f"\nBackward1 Response:\n{optimize_1}\n{'-' * 50}\n")
         return optimize_1
 
     def backward_2(self, input_sent, res_extract, backward1):
         global oie_prompt
-        optimize_2_prompt = self.backward_2_template.replace("__sys_prompt__", oie_prompt).replace(
-            "__input_sentence__", input_sent).replace("__extract_response__", str(res_extract)).replace(
-            "__backward_response__", backward1)
+
+        optimize_2_prompt = self.backward_2_template.replace(
+            "__sys_prompt__", oie_prompt
+        ).replace(
+            "__input_sentence__", input_sent
+        ).replace(
+            "__extract_response__", str(res_extract)
+        ).replace(
+            "__backward_response__", backward1
+        )
+
         main_logger.info(f"\n{'-' * 50}\nBackward_2:\n{input_sent=}\n{res_extract=}\n{backward1=}\n")
         main_logger.info(f"\nbackward_2...\n{'-' * 50}\n")
+
         optimize_2 = None
         while optimize_2 is None:
             optimize_2 = self.llm.llm_chat_response(optimize_2_prompt)
+
         main_logger.info(f"\nBackward2 Response:\n{optimize_2}\n{'-' * 50}\n")
         return optimize_2
 
@@ -269,12 +508,22 @@ class KG4:
 
     def optimizer(self, one_in, one_out, one_bak):
         global oie_prompt
-        _sample_example = self.optimizer_examples.replace("__sys_prompt__", oie_prompt).replace("__input_sentence__",
-                                                                                                one_in).replace(
-            "__extract_response__", str(one_out)).replace("__feedback__", one_bak)
+        _sample_example = self.optimizer_examples.replace(
+            "__sys_prompt__", oie_prompt
+        ).replace(
+            "__input_sentence__", one_in
+        ).replace(
+            "__extract_response__", str(one_out)
+        ).replace(
+            "__feedback__", one_bak
+        )
 
-        optimizer_info = self.optimizer_template.replace("__sys_prompt__", oie_prompt).replace(
-            "__update_insert_examples__", _sample_example)
+        optimizer_info = self.optimizer_template.replace(
+            "__sys_prompt__", oie_prompt
+        ).replace(
+            "__update_insert_examples__", _sample_example
+        )
+
         main_logger.info(f"\nOptimizer update prompt...\n{'-' * 50}\n")
         res_optimize = self.llm.llm_chat_response(optimizer_info)
         return res_optimize
@@ -282,18 +531,33 @@ class KG4:
     def optimizer_batch(self, batch_backward):
         global oie_prompt
         infos = []
+
         for b_in, b_out, b_bak, _ in batch_backward:
-            _sample_example = self.optimizer_examples.replace("__sys_prompt__", oie_prompt).replace(
-                "__input_sentence__", b_in).replace("__extract_response__", str(b_out)).replace("__feedback__", b_bak)
+            _sample_example = self.optimizer_examples.replace(
+                "__sys_prompt__", oie_prompt
+            ).replace(
+                "__input_sentence__", b_in
+            ).replace(
+                "__extract_response__", str(b_out)
+            ).replace(
+                "__feedback__", b_bak
+            )
             infos.append(_sample_example)
+
         info_placeholder = "\n\n".join(infos)
-        optimizer_info = self.optimizer_template.replace("__sys_prompt__", oie_prompt).replace(
-            "__update_insert_examples__", info_placeholder)
+
+        optimizer_info = self.optimizer_template.replace(
+            "__sys_prompt__", oie_prompt
+        ).replace(
+            "__update_insert_examples__", info_placeholder
+        )
+
         res_optimize = self.llm.llm_chat_response(optimizer_info)
         return res_optimize
 
 
-
+# MODIFICA IMPORTANTE: filtro schema SOLO qui, alla fine.
+# Questo rende la pipeline più coerente con KRPO.
 def process_pair(pair, kg4, sent):
     try:
         tri_, tri_text, entailment = pair
@@ -304,6 +568,7 @@ def process_pair(pair, kg4, sent):
     rel_def = replace_entities(tri_text, _h, _t)
     simi_rel = kg4.get_simi_rel_by_relcanon(_r, rel_def, sent, tri_)
 
+    # Se la relazione non è mappabile allo schema, la tripla viene scartata
     if simi_rel is None:
         return None
 
