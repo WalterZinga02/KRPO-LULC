@@ -1,11 +1,9 @@
 import re
-from tools.replace_h_t_4reldef import replace_entities
 
 
 class TripletPostProcessor:
-    def __init__(self, rels, rel_schemas, logger):
+    def __init__(self, rels, logger):
         self.rels = rels
-        self.rel_schemas = rel_schemas
         self.logger = logger
 
         self.rels_set = set(self.rels.tolist())
@@ -237,7 +235,7 @@ class TripletPostProcessor:
 
         return True
 
-    def get_simi_rel_by_relcanon(self, rel, relation_text, raw_sent, rel_tri):
+    def get_simi_rel_by_relcanon(self, rel, raw_sent, rel_tri):
         rel_norm = self.normalize_relation(rel)
 
         if rel_norm in self.schema_norm:
@@ -261,13 +259,12 @@ class TripletPostProcessor:
 
     def process_pair(self, pair, sentence):
         try:
-            tri_, tri_text, entailment = pair
+            tri_, tri_text, entailment = pair   # tri_text currently unused
             _h, _r, _t = tri_
         except Exception:
             return None
 
-        rel_def = replace_entities(tri_text, _h, _t)
-        simi_rel = self.get_simi_rel_by_relcanon(_r, rel_def, sentence, tri_)
+        simi_rel = self.get_simi_rel_by_relcanon(_r, sentence, tri_)
 
         if simi_rel is None:
             return None

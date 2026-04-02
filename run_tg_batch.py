@@ -4,12 +4,10 @@ import re
 import time
 import pandas as pd
 
-import numpy as np
 import ast
 import logging
 from tqdm import tqdm
-from model_utils.llms import LLMInvoker, UTF8FileHandler, text_relcanon
-from tools.replace_h_t_4reldef import replace_entities
+from model_utils.llms import LLMInvoker, UTF8FileHandler
 from prompts.optimizer_prompts import BACKWARD_prompt_EVAL, BACKWARD_prompt_PRED, OPTIMIZER_EXAMPLE_TEMPLATE, OPTIMIZER_prompt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tiktoken
@@ -112,11 +110,6 @@ class KG4:
         self.optimizer_examples = OPTIMIZER_EXAMPLE_TEMPLATE
         self.optimizer_template = OPTIMIZER_prompt
 
-        self.rel_simi_choice_template = open(
-            "./prompts/main_prompt/rel_simi_choice.txt",
-            encoding='utf-8'
-        ).read()
-
         local_rels = pd.read_csv(
             f"./schemas/{this_dataset}_schema.csv",
             header=None,
@@ -125,136 +118,6 @@ class KG4:
 
         self.rels = local_rels["name"].to_numpy()
         self.rel_schemas = local_rels["schema"].to_numpy()
-
-
-    # MODIFICA: normalizzazione robusta per relazioni
-    def normalize_relation(self, rel: str) -> str:
-        rel = rel.lower().strip()
-        rel = rel.replace("_", " ")
-        rel = re.sub(r"\s+", " ", rel)
-        return rel
-
-    # MODIFICA: gestione più conservativa dei casi ambigui
-    def handle_ambiguous_cases(self, rel_norm, rel_tri):
-        _h, _r, _t = rel_tri
-        t = str(_t).lower().strip()
-
-        # Caso "in": distinguere tempo da luogo
-        if rel_norm == "in":
-            temporal_markers = [
-                "year", "years", "period", "century", "season",
-                "january", "february", "march", "april", "may", "june",
-                "july", "august", "september", "october", "november", "december",
-                "spring", "summer", "autumn", "fall", "winter"
-            ]
-
-            # pattern tipo 1984, 2001, 1950-1998, ecc.
-            if (
-                any(x in t for x in temporal_markers)
-                or re.search(r"\b(18|19|20)\d{2}\b", t)
-                or re.search(r"\b(18|19|20)\d{2}\s*[-–]\s*(18|19|20)\d{2}\b", t)
-            ):
-                return "OCCURS_DURING"
-
-            return "LOCATED_IN"
-
-        # Caso FROM_TO: accettarlo solo se l'oggetto contiene davvero una transizione
-        if "from" in rel_norm or "to" in rel_norm:
-            has_explicit_transition = (
-                re.search(r"\bfrom\b.*\bto\b", t)
-                or re.search(r"\b\d+(\.\d+)?\s*(%|km²|ha|hectares)?\s*(to|[-–])\s*\d+(\.\d+)?\s*(%|km²|ha|hectares)?\b", t)
-            )
-
-            if has_explicit_transition:
-                return "FROM_TO"
-
-            # se non c'è una vera transizione, non mappare
-            return None
-
-        return None
-    
-    # MODIFICA: riconosce valori temporali
-    def looks_temporal(self, text: str) -> bool:
-        t = text.lower().strip()
-        temporal_words = [
-            "year", "years", "period", "season", "month", "months",
-            "spring", "summer", "autumn", "fall", "winter",
-            "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december",
-            "before", "after", "during", "since"
-        ]
-        return (
-            any(w in t for w in temporal_words)
-            or re.search(r"\b(18|19|20)\d{2}\b", t) is not None
-            or re.search(r"\b(18|19|20)\d{2}\s*[-–]\s*(18|19|20)\d{2}\b", t) is not None
-            or "second period" in t
-            or "first period" in t
-        )
-    
-    # MODIFICA: riconosce quantità/misure
-    def looks_quantitative(self, text: str) -> bool:
-        t = text.lower().strip()
-        return (
-            re.search(r"\b\d+(\.\d+)?\b", t) is not None
-            or "%" in t
-            or "km²" in t
-            or "km2" in t
-            or "ha" in t
-            or "hectare" in t
-            or "hectares" in t
-            or "half" in t
-            or "quarter" in t
-        )
-    
-    # MODIFICA: riconosce vere transizioni
-    def looks_transition(self, text: str) -> bool:
-        t = text.lower().strip()
-        return (
-            re.search(r"\bfrom\b.*\bto\b", t) is not None
-            or re.search(r"\b\d+(\.\d+)?\s*(%|km²|km2|ha|hectares)?\s*(to|[-–])\s*\d+(\.\d+)?\s*(%|km²|km2|ha|hectares)?\b", t) is not None
-        )
-    
-    # MODIFICA: filtro semantico finale leggero
-    def is_valid_triplet(self, head: str, rel: str, tail: str) -> bool:
-        h = head.lower().strip()
-        t = tail.lower().strip()
-
-        # relazioni temporali
-        if rel == "OCCURS_DURING":
-            return self.looks_temporal(t)
-
-        # relazioni quantitative
-        if rel in {"INCREASED_BY", "DECREASED_BY"}:
-            if not self.looks_quantitative(t):
-                return False
-            # scarta casi palesemente sbagliati
-            bad_quant_targets = ["scarce", "observed loss", "fertility", "size"]
-            if any(x == t for x in bad_quant_targets):
-                return False
-            return True
-
-        # transizioni
-        if rel == "FROM_TO":
-            return self.looks_transition(t)
-
-        # conversioni
-        if rel == "CONVERTED_TO":
-            # scarta aggettivi/stati non entità
-            bad_convert_targets = ["irreversible", "scarce", "defunct", "marginal"]
-            if t in bad_convert_targets:
-                return False
-            return True
-
-        # location: evita valori chiaramente temporali o quantitativi
-        if rel == "LOCATED_IN":
-            if self.looks_temporal(t):
-                return False
-            if self.looks_quantitative(t):
-                return False
-            return True
-
-        # AFFECTS / CAUSES / INCREASES / DECREASES di default
-        return True
 
     # MODIFICA IMPORTANTE: estrazione RAW, senza filtraggio finale schema
     # Questo mantiene KRPO coerente: extraction/NLI/optimization lavorano sui raw triplets.
@@ -366,38 +229,6 @@ class KG4:
         except (ValueError, SyntaxError) as e:
             main_logger.error(f"❌ Single sentence by triple NLI result {repr(nli_result)} parseFailed {e}")
             return self.nli_single(raw_sentence, sent_by_triplet)
-
-    # MODIFICA IMPORTANTE: mapping/filtro schema finale
-    # Questo viene usato solo nel post-processing, non durante l'estrazione raw.
-    def get_simi_rel_by_relcanon(self, rel, relation_text, raw_sent, rel_tri):
-        rel_norm = self.normalize_relation(rel)
-
-        # match diretto sullo schema, robusto a maiuscole/underscore/spazi
-        if rel_norm in self.schema_norm:
-            return self.schema_norm[rel_norm]
-
-        # mapping sinonimi/varianti
-        for key in sorted(self.rel_mapping.keys(), key=len, reverse=True):
-            if key in rel_norm:
-                mapped = self.rel_mapping[key]
-                if mapped in self.rels_set:
-                    main_logger.info(f"🔁 Mapped relation: {rel} -> {mapped}")
-                    return mapped
-
-        # gestione casi ambigui
-        special = self.handle_ambiguous_cases(rel_norm, rel_tri)
-        if special is not None:
-            return special
-
-        main_logger.warning(
-            f"⚠️ Relation out of schema discarded: rel={rel} | norm={rel_norm} | sentence={raw_sent}"
-        )
-        return None
-
-    # Lascio il metodo, anche se ora non stiamo espandendo lo schema
-    def add_rel_schema(self, rel, rel_des):
-        self.rels = np.append(self.rels, rel)
-        self.rel_schemas = np.append(self.rel_schemas, rel_des)
 
     def extract_and_nli_eval(self, one_sent, extrac_prompt):
         got_triplets = self.sentence_extract_triplets(one_sent, extrac_prompt)
@@ -545,7 +376,7 @@ def main(dataset, llm_model, output_paths):
     kg4 = KG4(dataset, llm_model)
     global oie_prompt
     batch_size = 5
-    post_processor = TripletPostProcessor(kg4.rels, kg4.rel_schemas, main_logger)
+    post_processor = TripletPostProcessor(kg4.rels, main_logger)
 
     with open(output_paths["raw_triplets_path"], 'w', encoding='utf-8') as out_raw, \
          open(output_paths["entailment_tris_path"], 'w', encoding='utf-8') as out_en, \
