@@ -13,6 +13,7 @@ from tools.replace_h_t_4reldef import replace_entities
 from prompts.optimizer_prompts import BACKWARD_prompt_EVAL, BACKWARD_prompt_PRED, OPTIMIZER_EXAMPLE_TEMPLATE, OPTIMIZER_prompt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tiktoken
+from post_processing import TripletPostProcessor
 
 # Settings
 choose_llm = "gpt-4o-mini"
@@ -125,128 +126,6 @@ class KG4:
         self.rels = local_rels["name"].to_numpy()
         self.rel_schemas = local_rels["schema"].to_numpy()
 
-        # MODIFICA: set per lookup veloce
-        self.rels_set = set(self.rels.tolist())
-
-        # MODIFICA: schema normalizzato precomputato
-        self.schema_norm = {
-            self.normalize_relation(r): r
-            for r in self.rels_set
-        }
-
-        raw_rel_mapping = {
-
-            # CAUSES
-            "causes": "CAUSES",
-            "cause": "CAUSES",
-            "caused by": "CAUSES",
-            "leads to": "CAUSES",
-            "lead to": "CAUSES",
-            "results in": "CAUSES",
-            "result in": "CAUSES",
-            "drives": "CAUSES",
-            "induces": "CAUSES",
-            "triggers": "CAUSES",
-            "contributes to": "CAUSES",
-
-            # AFFECTS (più conservativo)
-            "affects": "AFFECTS",
-            "affect": "AFFECTS",
-            "influences": "AFFECTS",
-            "influence": "AFFECTS",
-            "impacts": "AFFECTS",
-            "impact": "AFFECTS",
-            "modifies": "AFFECTS",
-            "alters": "AFFECTS",
-            "limits": "AFFECTS",
-            "limit": "AFFECTS",
-
-            # CONVERTED_TO (solo conversioni reali)
-            "converted to": "CONVERTED_TO",
-            "convert to": "CONVERTED_TO",
-            "conversion to": "CONVERTED_TO",
-            "transformed into": "CONVERTED_TO",
-            "transform into": "CONVERTED_TO",
-            "changed to": "CONVERTED_TO",
-            "change to": "CONVERTED_TO",
-            "turned into": "CONVERTED_TO",
-            "converted into": "CONVERTED_TO",
-
-            # LOCATED_IN (solo spaziale reale)
-            "located in": "LOCATED_IN",
-            "within": "LOCATED_IN",
-            "inside": "LOCATED_IN",
-            "in the region of": "LOCATED_IN",
-            "in the area of": "LOCATED_IN",
-            "found in": "LOCATED_IN",
-            "present in": "LOCATED_IN",
-
-            # OCCURS_DURING (temporale chiaro)
-            "during": "OCCURS_DURING",
-            "over": "OCCURS_DURING",
-            "between": "OCCURS_DURING",
-            "over the period": "OCCURS_DURING",
-            "within the period": "OCCURS_DURING",
-
-            # INCREASES
-            "increase": "INCREASES",
-            "increases": "INCREASES",
-            "increasing": "INCREASES",
-            "grow": "INCREASES",
-            "grows": "INCREASES",
-            "growing": "INCREASES",
-            "grew": "INCREASES",
-            "growth": "INCREASES",
-            "rise": "INCREASES",
-            "rises": "INCREASES",
-            "rising": "INCREASES",
-            "rose": "INCREASES",
-            "expand": "INCREASES",
-            "expands": "INCREASES",
-            "expansion": "INCREASES",
-            "expanded": "INCREASES",
-
-            # INCREASED_BY (solo quantità)
-            "increased by": "INCREASED_BY",
-            "increase by": "INCREASED_BY",
-            "rose by": "INCREASED_BY",
-            "growth of": "INCREASED_BY",
-            "increase of": "INCREASED_BY",
-
-            # DECREASES
-            "decrease": "DECREASES",
-            "decreases": "DECREASES",
-            "decreasing": "DECREASES",
-            "decline": "DECREASES",
-            "declines": "DECREASES",
-            "declining": "DECREASES",
-            "declined": "DECREASES",
-            "reduce": "DECREASES",
-            "reduces": "DECREASES",
-            "reduction": "DECREASES",
-            "loss": "DECREASES",
-            "shrink": "DECREASES",
-            "shrinks": "DECREASES",
-
-            # DECREASED_BY (solo quantità)
-            "decreased by": "DECREASED_BY",
-            "decrease by": "DECREASED_BY",
-            "declined by": "DECREASED_BY",
-            "reduced by": "DECREASED_BY",
-            "reduction of": "DECREASED_BY",
-            "loss of": "DECREASED_BY",
-
-            # FROM_TO (transizioni reali)
-            "ranged from": "FROM_TO",
-            "changed from": "FROM_TO",
-            "varied from": "FROM_TO",
-        }
-
-        
-        self.rel_mapping = {
-            self.normalize_relation(k): v
-            for k, v in raw_rel_mapping.items()
-        }
 
     # MODIFICA: normalizzazione robusta per relazioni
     def normalize_relation(self, rel: str) -> str:
@@ -657,34 +536,6 @@ class KG4:
         res_optimize = self.llm.llm_chat_response(optimizer_info)
         return res_optimize
 
-
-# MODIFICA IMPORTANTE: filtro schema SOLO qui, alla fine.
-# Questo rende la pipeline più coerente con KRPO.
-def process_pair(pair, kg4, sent):
-    try:
-        tri_, tri_text, entailment = pair
-        _h, _r, _t = tri_
-    except Exception:
-        return None
-
-    rel_def = replace_entities(tri_text, _h, _t)
-    simi_rel = kg4.get_simi_rel_by_relcanon(_r, rel_def, sent, tri_)
-
-    # Se la relazione non è mappabile allo schema, scarta
-    if simi_rel is None:
-        return None
-
-    # MODIFICA: filtro semantico finale
-    if not kg4.is_valid_triplet(_h, simi_rel, _t):
-        main_logger.warning(
-            f"⚠️ Invalid semantic triplet discarded: [{_h}, {simi_rel}, {_t}]"
-        )
-        return None
-
-    final_tri = [_h, simi_rel, _t]
-    return final_tri, entailment
-
-
 def batch_iter(data, batch_size):
     for i in range(0, len(data), batch_size):
         yield [(i + j, sent) for j, sent in enumerate(data[i:i + batch_size])]
@@ -694,6 +545,7 @@ def main(dataset, llm_model, output_paths):
     kg4 = KG4(dataset, llm_model)
     global oie_prompt
     batch_size = 5
+    post_processor = TripletPostProcessor(kg4.rels, kg4.rel_schemas, main_logger)
 
     with open(output_paths["raw_triplets_path"], 'w', encoding='utf-8') as out_raw, \
          open(output_paths["entailment_tris_path"], 'w', encoding='utf-8') as out_en, \
@@ -771,7 +623,7 @@ def main(dataset, llm_model, output_paths):
             for _eval_pairs, _extract_triplets, _sent in zip(batch_eval_pairs, batch_extract_triplets, batch_sents):
                 max_workers = max(1, min(os.cpu_count() or 4, len(_eval_pairs)))
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    results = list(executor.map(lambda p: process_pair(p, kg4, _sent), _eval_pairs))
+                    results = list(executor.map(lambda p: post_processor.process_pair(p, _sent), _eval_pairs))
 
                 final_triplets = []
                 entailment_triplets = []
