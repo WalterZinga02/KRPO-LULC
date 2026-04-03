@@ -38,33 +38,23 @@ def read_sentences_from_file(read_file):
     return sentences
 
 
-oie_prompt = """Your task is to transform the given text into a semantic graph in the form of a list of triples.
+oie_prompt = """Your task is to extract a semantic graph from the input text as a list of triples.
 
-Return ONLY a Python-style list of triples in the following format:
-[[subject, predicate, object], [subject, predicate, object], ...]
-
+Return ONLY a Python-style list of triples:
+[[subject, predicate, object], ...]
 Do not include any explanation or additional text.
 
-Guidelines:
-Extract all meaningful triples from the sentence.
-Focus especially on land use, land cover, environmental processes, and their changes (LULC).
-Each triple must be clear and semantically complete.
+Extract all meaningful triples, focusing on land use, land cover, environmental processes, and their changes.
 
-Preferred relation types include:
-CAUSES, AFFECTS, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, FROM_TO.
+Prefer the following relations when they fit naturally:
+CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, DOMINATES.
 
-These relation types are preferred when they naturally fit the sentence, but do not force them if they reduce clarity or correctness.
-If not possible, use the most concise predicate that preserves the meaning.
+If none of these apply clearly, use a concise and meaningful relation but avoid vague predicates (e.g., "is", "has", "related to").
 
-Avoid vague predicates such as "is", "has", "related to", or "associated with".
-Prefer informative and specific relations.
-
-Output must be:
-
-a valid Python list
-no explanations
-no newline characters or formatting symbols
-no additional text before or after the list
+When a sentence expresses a change between two values (e.g., "from X to Y"):
+- Use INCREASES or DECREASES
+- Include "from X to Y" in the object
+- Do NOT create a separate transition relation
 """
 suffix_prompt = """
 Here are some examples:

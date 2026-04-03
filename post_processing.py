@@ -26,18 +26,10 @@ class TripletPostProcessor:
             "induces": "CAUSES",
             "triggers": "CAUSES",
             "contributes to": "CAUSES",
-
-            # AFFECTS
-            "affects": "AFFECTS",
-            "affect": "AFFECTS",
-            "influences": "AFFECTS",
-            "influence": "AFFECTS",
-            "impacts": "AFFECTS",
-            "impact": "AFFECTS",
-            "modifies": "AFFECTS",
-            "alters": "AFFECTS",
-            "limits": "AFFECTS",
-            "limit": "AFFECTS",
+            "impacts": "CAUSES",
+            "impact": "CAUSES",
+            "influences": "CAUSES",
+            "influence": "CAUSES",
 
             # CONVERTED_TO
             "converted to": "CONVERTED_TO",
@@ -114,10 +106,14 @@ class TripletPostProcessor:
             "reduction of": "DECREASED_BY",
             "loss of": "DECREASED_BY",
 
-            # FROM_TO
-            "ranged from": "FROM_TO",
-            "changed from": "FROM_TO",
-            "varied from": "FROM_TO",
+            # DOMINATES
+            "dominates": "DOMINATES",
+            "dominate": "DOMINATES",
+            "dominated": "DOMINATES",
+            "dominant": "DOMINATES",
+            "predominant": "DOMINATES",
+            "prevalent": "DOMINATES",
+            "is prevalent in": "DOMINATES",
         }
 
         self.rel_mapping = {
@@ -125,7 +121,32 @@ class TripletPostProcessor:
             for k, v in raw_rel_mapping.items()
         }
 
+    def clean_text_field(self, value) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip()
+        text = re.sub(r"\s+", " ", text)
+        return text
+
+    def is_placeholder(self, text: str) -> bool:
+        t = text.lower().strip()
+
+        placeholder_values = {
+            "", ".", ",", ";", ":", "-", "_", "--", "---",
+            "none", "null", "n/a", "na", "unknown", "unspecified",
+            "not available", "not specified", "missing", "blank"
+        }
+
+        if t in placeholder_values:
+            return True
+
+        if re.fullmatch(r"[\W_]+", t):
+            return True
+
+        return False
+
     def normalize_relation(self, rel: str) -> str:
+        rel = "" if rel is None else str(rel)
         rel = rel.lower().strip()
         rel = rel.replace("_", " ")
         rel = re.sub(r"\s+", " ", rel)
@@ -133,7 +154,7 @@ class TripletPostProcessor:
 
     def handle_ambiguous_cases(self, rel_norm, rel_tri):
         _h, _r, _t = rel_tri
-        t = str(_t).lower().strip()
+        t = self.clean_text_field(_t).lower()
 
         if rel_norm == "in":
             temporal_markers = [
@@ -152,17 +173,6 @@ class TripletPostProcessor:
 
             return "LOCATED_IN"
 
-        if "from" in rel_norm or "to" in rel_norm:
-            has_explicit_transition = (
-                re.search(r"\bfrom\b.*\bto\b", t)
-                or re.search(r"\b\d+(\.\d+)?\s*(%|km²|ha|hectares)?\s*(to|[-–])\s*\d+(\.\d+)?\s*(%|km²|ha|hectares)?\b", t)
-            )
-
-            if has_explicit_transition:
-                return "FROM_TO"
-
-            return None
-
         return None
 
     def looks_temporal(self, text: str) -> bool:
@@ -172,7 +182,8 @@ class TripletPostProcessor:
             "spring", "summer", "autumn", "fall", "winter",
             "january", "february", "march", "april", "may", "june",
             "july", "august", "september", "october", "november", "december",
-            "before", "after", "during", "since"
+            "before", "after", "during", "since",
+            "by 2050", "each year", "year-round"
         ]
         return (
             any(w in t for w in temporal_words)
@@ -180,6 +191,10 @@ class TripletPostProcessor:
             or re.search(r"\b(18|19|20)\d{2}\s*[-–]\s*(18|19|20)\d{2}\b", t) is not None
             or "second period" in t
             or "first period" in t
+            or t.startswith("from ")
+            or t.startswith("between ")
+            or t.startswith("in ")
+            or t.startswith("by ")
         )
 
     def looks_quantitative(self, text: str) -> bool:
@@ -194,43 +209,79 @@ class TripletPostProcessor:
             or "hectares" in t
             or "half" in t
             or "quarter" in t
+            or "million" in t
+            or "less than" in t
+            or "more than" in t
         )
 
-    def looks_transition(self, text: str) -> bool:
-        t = text.lower().strip()
-        return (
-            re.search(r"\bfrom\b.*\bto\b", t) is not None
-            or re.search(r"\b\d+(\.\d+)?\s*(%|km²|km2|ha|hectares)?\s*(to|[-–])\s*\d+(\.\d+)?\s*(%|km²|km2|ha|hectares)?\b", t) is not None
-        )
+    def normalize_change_relation(self, rel: str, tail: str) -> str:
+        t = self.clean_text_field(tail)
+
+        if rel == "INCREASES" and self.looks_quantitative(t):
+            return "INCREASED_BY"
+
+        if rel == "DECREASES" and self.looks_quantitative(t):
+            return "DECREASED_BY"
+
+        return rel
 
     def is_valid_triplet(self, head: str, rel: str, tail: str) -> bool:
-        t = tail.lower().strip()
+        h = self.clean_text_field(head)
+        r = self.clean_text_field(rel)
+        t = self.clean_text_field(tail)
 
-        if rel == "OCCURS_DURING":
+        # resta sempre rigido su placeholder / campi rotti
+        if self.is_placeholder(h) or self.is_placeholder(r) or self.is_placeholder(t):
+            return False
+
+        if len(h) < 2 or len(r) < 2 or len(t) < 2:
+            return False
+
+        if h.lower() == t.lower():
+            return False
+
+        # OCCURS_DURING: ancora abbastanza rigido
+        if r == "OCCURS_DURING":
             return self.looks_temporal(t)
 
-        if rel in {"INCREASED_BY", "DECREASED_BY"}:
-            if not self.looks_quantitative(t):
-                return False
-            bad_quant_targets = ["scarce", "observed loss", "fertility", "size"]
-            if any(x == t for x in bad_quant_targets):
-                return False
-            return True
+        # quantità: ancora abbastanza rigido
+        if r in {"INCREASED_BY", "DECREASED_BY"}:
+            return self.looks_quantitative(t)
 
-        if rel == "FROM_TO":
-            return self.looks_transition(t)
+        # conversione: diventiamo più permissivi, scartiamo solo placeholder evidenti
+        if r == "CONVERTED_TO":
+            bad_convert_targets = {"irreversible", "scarce"}
+            return t.lower() not in bad_convert_targets
 
-        if rel == "CONVERTED_TO":
-            bad_convert_targets = ["irreversible", "scarce", "defunct", "marginal"]
-            if t in bad_convert_targets:
-                return False
-            return True
-
-        if rel == "LOCATED_IN":
+        # dominanza: abbastanza permissivo
+        if r == "DOMINATES":
             if self.looks_temporal(t):
                 return False
             if self.looks_quantitative(t):
                 return False
+            return True
+
+        # location: più permissivo di prima
+        if r == "LOCATED_IN":
+            if self.looks_temporal(t):
+                return False
+            if self.looks_quantitative(t):
+                return False
+
+            bad_location_targets = {
+                "agricultural cycle",
+                "irrigation",
+                "communal access",
+                "cover in 1990"
+            }
+            return t.lower() not in bad_location_targets
+
+        # increases/decreases: molto permissivo, purché non sia placeholder
+        if r in {"INCREASES", "DECREASES"}:
+            return True
+
+        # causes: permissivo
+        if r == "CAUSES":
             return True
 
         return True
@@ -259,15 +310,22 @@ class TripletPostProcessor:
 
     def process_pair(self, pair, sentence):
         try:
-            tri_, tri_text, entailment = pair   # tri_text currently unused
+            tri_, tri_text, entailment = pair
             _h, _r, _t = tri_
         except Exception:
             return None
 
-        simi_rel = self.get_simi_rel_by_relcanon(_r, sentence, tri_)
+        _h = self.clean_text_field(_h)
+        _r = self.clean_text_field(_r)
+        _t = self.clean_text_field(_t)
+
+        simi_rel = self.get_simi_rel_by_relcanon(_r, sentence, (_h, _r, _t))
 
         if simi_rel is None:
             return None
+
+        # normalizza increases/decreases -> *_BY quando il tail è quantitativo
+        simi_rel = self.normalize_change_relation(simi_rel, _t)
 
         if not self.is_valid_triplet(_h, simi_rel, _t):
             self.logger.warning(
