@@ -4,22 +4,20 @@ Triplets: [['cropped fields','LOCATED_IN','study site'], ['arable lands','LOCATE
 
 Example 2:
 Text: Forest land was decreased nearly by half in 2002 compared to its coverage in 1984, while the size of the gallery forest did not change much
-Triplets: [['forest land','DECREASED_BY','half'], ['forest land','DECREASES','from 1984 to 2002']]
+Triplets: [['forest land','DECREASES','by half'], ['forest land','DECREASES','from 1984 to 2002']]
 
 Example 3:
 Text: Thus farmland persists and increases each year at the expense of forest woodland and tree savanna.
-Triplets: [['farmland','INCREASES','each year'], ['forest woodland','DECREASES','each year'], ['tree savanna','DECREASES','each year'], ['forest woodland','CONVERTED_TO','farmland'], ['tree savanna','CONVERTED_TO','farmland'], 
-
-['increase in farmland','CAUSES','decrease in tree savanna'], ['increase in farmland','CAUSES','decrease in forest woodland']]
+Triplets: [['farmland','INCREASES','each year'], ['forest woodland','DECREASES','each year'], ['tree savanna','DECREASES','each year'], ['forest woodland','CONVERTED_TO','farmland'], ['tree savanna','CONVERTED_TO','farmland'], ['increase in farmland','CAUSES','decrease in tree savanna'], ['increase in farmland','CAUSES','decrease in forest woodland']]
 
 Example 4:
 Text: During that same time period 52 million hectares were regained due to reforestation efforts and natural regrowth.
-Triplets: [['forest','INCREASED_BY','52 million hectares'], ['increase in forest','OCCURS_DURING','that same time period'], ['reforestation efforts','CAUSES','forest increase'],
+Triplets: [['forest','INCREASES','by 52 million hectares'], ['increase in forest','OCCURS_DURING','that same time period'], ['reforestation efforts','CAUSES','forest increase'],
 ['natural regrowth','CAUSES','forest increase']]
 
 Example 5:
 Text: The majority of other cash crops was converted to food crop fallow areas (1067.98 km²)
-Triplets: [['cash crops','CONVERTED_TO','food crop fallow'], ['cash crops','DECREASED_BY','1067.98 km²'], ['food crop fallow areas','INCREASED_BY','1067.98 km²']]
+Triplets: [['cash crops','CONVERTED_TO','food crop fallow'], ['cash crops','DECREASES','by 1067.98 km²'], ['food crop fallow areas','INCREASES','by 1067.98 km²']]
 
 Example 6:
 Text: In a small Sahelian catchment in Niger, the increase in cultivated land from 1950 to 1998 was associated with an increase in the extent of eroded land (from 7 to 16%) at the expense of the savanna
@@ -27,4 +25,4 @@ Triplets: [['cultivated land','INCREASES','from 1950 to 1998'], ['eroded land','
 
 Example 7:
 Text: Tree savannas, bare soils and agricultural lands increased by 17.55%, 18.79% and 78.79%, respectively, while woodland, gallery forest, shrub savannas and water bodies decreased by 22.02%, 5.03%, 40.08% and 31.2%, respectively.
-Triplets: [['tree savanna','INCREASED_BY','17.55%'], ['bare soil','INCREASED_BY','18.79%'], ['agricultural land','INCREASED_BY','78.79%'], ['woodland','DECREASED_BY','22.02%'], ['gallery forest','DECREASED_BY','5.03%'], ['shrub savanna','DECREASED_BY','40.08%'], ['water bodies','DECREASED_BY','31.20%']]
+Triplets: [['tree savanna','INCREASES','by 17.55%'], ['bare soil','INCREASES','by 18.79%'], ['agricultural land','INCREASES','by 78.79%'], ['woodland','DECREASES','by 22.02%'], ['gallery forest','DECREASES','by 5.03%'], ['shrub savanna','DECREASES','by 40.08%'], ['water bodies','DECREASES','by 31.20%']]

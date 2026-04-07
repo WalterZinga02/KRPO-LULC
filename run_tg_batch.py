@@ -44,18 +44,34 @@ Return ONLY a Python-style list of triples:
 [[subject, predicate, object], ...]
 Do not include any explanation or additional text.
 
-Extract all meaningful triples, focusing on land use, land cover, environmental processes, and their changes.
+Extract all meaningful triples from the sentences, focus on land use, land cover, environmental processes, and their changes.
 
 Prefer the following relations when they fit naturally:
-CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, DOMINATES.
+- CAUSES: Indicates a direct causal relationship.
+- CONVERTED_TO: Indicates transformation from one state to another.
+- LOCATED_IN: Indicates a spatial relationship.
+- OCCURS_DURING: Indicates a temporal relationship.
+- INCREASES: Indicates a growth or rise in quantity or quality.
+- DECREASES: Indicates a reduction in quantity or quality.
+- DOMINATES: Indicates a prevailing presence or influence.
 
-If none of these apply clearly, use a concise and meaningful relation but avoid vague predicates (e.g., "is", "has", "related to").
+When possible, express extracted relations using these preferred relation names.
+If a relation does not match perfectly, choose the closest preferred relation that preserves the original meaning as much as possible.
+Avoid introducing new relation names unless strictly necessary.
 
-When a sentence expresses a change between two values (e.g., "from X to Y"):
-- Use INCREASES or DECREASES
-- Include "from X to Y" in the object
-- Do NOT create a separate transition relation
+When a sentence expresses a quantitative change:
+
+- Use INCREASES or DECREASES as the predicate
+- Include the full expression in the object
+
+This includes:
+- "from X to Y" → keep "from X to Y" in the object
+- "by X" → keep "by X" in the object
+
+Do NOT:
+- create separate transition relations (e.g., FROM_TO)
 """
+
 suffix_prompt = """
 Here are some examples:
 {few_shot_examples}

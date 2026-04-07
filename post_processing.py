@@ -75,13 +75,11 @@ class TripletPostProcessor:
             "expands": "INCREASES",
             "expansion": "INCREASES",
             "expanded": "INCREASES",
-
-            # INCREASED_BY
-            "increased by": "INCREASED_BY",
-            "increase by": "INCREASED_BY",
-            "rose by": "INCREASED_BY",
-            "growth of": "INCREASED_BY",
-            "increase of": "INCREASED_BY",
+            "increased by": "INCREASES",
+            "increase by": "INCREASES",
+            "rose by": "INCREASES",
+            "growth of": "INCREASES",
+            "increase of": "INCREASES",
 
             # DECREASES
             "decrease": "DECREASES",
@@ -97,14 +95,12 @@ class TripletPostProcessor:
             "loss": "DECREASES",
             "shrink": "DECREASES",
             "shrinks": "DECREASES",
-
-            # DECREASED_BY
-            "decreased by": "DECREASED_BY",
-            "decrease by": "DECREASED_BY",
-            "declined by": "DECREASED_BY",
-            "reduced by": "DECREASED_BY",
-            "reduction of": "DECREASED_BY",
-            "loss of": "DECREASED_BY",
+            "decreased by": "DECREASES",
+            "decrease by": "DECREASES",
+            "declined by": "DECREASES",
+            "reduced by": "DECREASES",
+            "reduction of": "DECREASES",
+            "loss of": "DECREASES",
 
             # DOMINATES
             "dominates": "DOMINATES",
@@ -176,27 +172,65 @@ class TripletPostProcessor:
         return None
 
     def looks_temporal(self, text: str) -> bool:
-        t = text.lower().strip()
+        t = self.clean_text_field(text).lower()
+
         temporal_words = [
-            "year", "years", "period", "season", "month", "months",
+            "year", "years", "period", "periods", "season", "seasons",
+            "month", "months", "decade", "decades", "century", "centuries",
             "spring", "summer", "autumn", "fall", "winter",
             "january", "february", "march", "april", "may", "june",
             "july", "august", "september", "october", "november", "december",
-            "before", "after", "during", "since",
-            "by 2050", "each year", "year-round"
+            "before", "after", "during", "since", "until", "over",
+            "annual", "yearly", "historical", "future"
         ]
+
         return (
             any(w in t for w in temporal_words)
+
+            # anni singoli: 1990
             or re.search(r"\b(18|19|20)\d{2}\b", t) is not None
+
+            # decenni: 1970s, 1980s
+            or re.search(r"\b(18|19|20)\d{2}s\b", t) is not None
+
+            # intervalli tipo 1990-2010 / 1990–2010
             or re.search(r"\b(18|19|20)\d{2}\s*[-–]\s*(18|19|20)\d{2}\b", t) is not None
-            or "second period" in t
-            or "first period" in t
-            or t.startswith("from ")
-            or t.startswith("between ")
-            or t.startswith("in ")
-            or t.startswith("by ")
+
+            # from X to Y / between X and Y
+            or re.search(r"\bfrom\b.+\bto\b", t) is not None
+            or re.search(r"\bbetween\b.+\band\b", t) is not None
+
+            # by + anno
+            or re.search(r"\bby\s+(18|19|20)\d{2}\b", t) is not None
+
+            # in the 1970s / during the 1980s
+            or re.search(r"\b(in|during|after|before)\s+the\s+(18|19|20)\d{2}s\b", t) is not None
+
+            # early/late + season/period/year
+            or re.search(r"\b(early|late)\s+(growing\s+)?(season|period|year)\b", t) is not None
+
+            # after/before + event nominale con parola temporale implicita
+            or re.search(r"\b(after|before|during)\s+.+", t) is not None
         )
 
+    
+    def looks_like_state_or_quality(self, text: str) -> bool:
+        t = self.clean_text_field(text).lower()
+
+        # una sola parola e molto probabilmente aggettivo/stato
+        bad_single_words = {
+            "irreversible", "scarce", "scarcity", "defunct",
+            "marginal", "limited", "adequate", "high", "low"
+        }
+        if t in bad_single_words:
+            return True
+
+        # target introdotti da spiegazioni/causalità
+        if t.startswith(("due to ", "because of ")):
+            return True
+
+        return False
+    
     def looks_quantitative(self, text: str) -> bool:
         t = text.lower().strip()
         return (
@@ -213,17 +247,18 @@ class TripletPostProcessor:
             or "less than" in t
             or "more than" in t
         )
+    
+    def looks_like_human_group(self, text: str) -> bool:
+        t = self.clean_text_field(text).lower()
 
-    def normalize_change_relation(self, rel: str, tail: str) -> str:
-        t = self.clean_text_field(tail)
+        human_markers = [
+            "population", "people", "farmers", "households",
+            "rural population", "urban population", "community", "communities"
+        ]
 
-        if rel == "INCREASES" and self.looks_quantitative(t):
-            return "INCREASED_BY"
+        return any(w in t for w in human_markers)
+    
 
-        if rel == "DECREASES" and self.looks_quantitative(t):
-            return "DECREASED_BY"
-
-        return rel
 
     def is_valid_triplet(self, head: str, rel: str, tail: str) -> bool:
         h = self.clean_text_field(head)
@@ -240,24 +275,35 @@ class TripletPostProcessor:
         if h.lower() == t.lower():
             return False
 
-        # OCCURS_DURING: ancora abbastanza rigido
         if r == "OCCURS_DURING":
-            return self.looks_temporal(t)
+            h_temporal = self.looks_temporal(h)
+            t_temporal = self.looks_temporal(t)
 
-        # quantità: ancora abbastanza rigido
-        if r in {"INCREASED_BY", "DECREASED_BY"}:
-            return self.looks_quantitative(t)
+            if not t_temporal:
+                return False
 
-        # conversione: diventiamo più permissivi, scartiamo solo placeholder evidenti
+            if h_temporal:
+                return False
+
+            return True
+
         if r == "CONVERTED_TO":
-            bad_convert_targets = {"irreversible", "scarce"}
-            return t.lower() not in bad_convert_targets
-
-        # dominanza: abbastanza permissivo
+            if self.looks_temporal(t):
+                return False
+            if self.looks_quantitative(t):
+                return False
+            if self.looks_like_state_or_quality(t):
+                return False
+            return True
+        
         if r == "DOMINATES":
             if self.looks_temporal(t):
                 return False
             if self.looks_quantitative(t):
+                return False
+            if self.looks_like_state_or_quality(t):
+                return False
+            if self.looks_like_human_group(t):
                 return False
             return True
 
@@ -267,14 +313,7 @@ class TripletPostProcessor:
                 return False
             if self.looks_quantitative(t):
                 return False
-
-            bad_location_targets = {
-                "agricultural cycle",
-                "irrigation",
-                "communal access",
-                "cover in 1990"
-            }
-            return t.lower() not in bad_location_targets
+            return True
 
         # increases/decreases: molto permissivo, purché non sia placeholder
         if r in {"INCREASES", "DECREASES"}:
@@ -307,6 +346,20 @@ class TripletPostProcessor:
             f"⚠️ Relation out of schema discarded: rel={rel} | norm={rel_norm} | sentence={raw_sent}"
         )
         return None
+    
+    def normalize_occurs_during_direction(self, head: str, tail: str):
+        h = self.clean_text_field(head)
+        t = self.clean_text_field(tail)
+
+        h_temporal = self.looks_temporal(h)
+        t_temporal = self.looks_temporal(t)
+
+        # Caso invertito: tempo -> evento
+        if h_temporal and not t_temporal:
+            self.logger.info(f"🔁 Swapped OCCURS_DURING arguments: [{h}] <-> [{t}]")
+            return t, h
+
+        return h, t
 
     def process_pair(self, pair, sentence):
         try:
@@ -324,14 +377,14 @@ class TripletPostProcessor:
         if simi_rel is None:
             return None
 
-        # normalizza increases/decreases -> *_BY quando il tail è quantitativo
-        simi_rel = self.normalize_change_relation(simi_rel, _t)
+        if simi_rel == "OCCURS_DURING":
+            _h, _t = self.normalize_occurs_during_direction(_h, _t)
 
         if not self.is_valid_triplet(_h, simi_rel, _t):
             self.logger.warning(
                 f"⚠️ Invalid semantic triplet discarded: [{_h}, {simi_rel}, {_t}]"
             )
             return None
-
+        
         final_tri = [_h, simi_rel, _t]
         return final_tri, entailment

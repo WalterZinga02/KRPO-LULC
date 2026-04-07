@@ -7,7 +7,7 @@ Do not include any explanation or additional text.
 Extract all meaningful triples, focusing on land use, land cover, environmental processes, and their changes.
 
 Prefer the following relations when they fit naturally:
-CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, INCREASED_BY, DECREASES, DECREASED_BY, DOMINATES.
+CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES.
 
 If none of these apply clearly, use a concise and meaningful relation but avoid vague predicates (e.g., "is", "has", "related to").
 
