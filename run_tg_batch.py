@@ -14,7 +14,7 @@ import tiktoken
 from post_processing import TripletPostProcessor
 
 # Settings
-choose_llm = "gpt-4o-mini"
+choose_llm = "gpt-5-mini"
 chose_dataset = "lulc_test"
 save_dir = "outputs"
 log_rm = "test1_"
@@ -40,11 +40,13 @@ def read_sentences_from_file(read_file):
 
 oie_prompt = """Your task is to extract a semantic graph from the input text as a list of triples.
 
-Return ONLY a Python-style list of triples:
+Return ONLY valid JSON in the following format:
 [[subject, predicate, object], ...]
 Do not include any explanation or additional text.
 
-Extract all meaningful triples from the sentences, focus on land use, land cover, environmental processes, and their changes.
+Extract only meaningful non redundant and informative triples from the sentences, focus on land use, land cover, environmental processes, and their changes.
+Use only information explicitly stated in the text and do NOT infer relations unless clearly expressed.
+If no clear and informative triples can be extracted, return an empty list.
 
 Prefer the following relations when they fit naturally:
 - CAUSES: Indicates a direct causal relationship.
@@ -55,7 +57,6 @@ Prefer the following relations when they fit naturally:
 - DECREASES: Indicates a reduction in quantity or quality.
 - DOMINATES: Indicates a prevailing presence or influence.
 
-When possible, express extracted relations using these preferred relation names.
 If a relation does not match perfectly, choose the closest preferred relation that preserves the original meaning as much as possible.
 Avoid introducing new relation names unless strictly necessary.
 
@@ -68,8 +69,7 @@ This includes:
 - "from X to Y" → keep "from X to Y" in the object
 - "by X" → keep "by X" in the object
 
-Do NOT:
-- create separate transition relations (e.g., FROM_TO)
+Do NOT create separate transition relations (e.g., FROM_TO)
 """
 
 suffix_prompt = """
@@ -125,8 +125,6 @@ class KG4:
         self.rels = local_rels["name"].to_numpy()
         self.rel_schemas = local_rels["schema"].to_numpy()
 
-    # MODIFICA IMPORTANTE: estrazione RAW, senza filtraggio finale schema
-    # Questo mantiene KRPO coerente: extraction/NLI/optimization lavorano sui raw triplets.
     def sentence_extract_triplets(self, sentence, _oie_prompt):
         main_logger.info(f"\nextracting...\n{'-' * 50}\n")
 
@@ -154,18 +152,34 @@ class KG4:
             try:
                 extract_res = extract_res.strip()
 
-                # Supporta sia {"triplets": [...]} sia lista pura [...]
+                # Remove code fences if present
+                extract_res = re.sub(r"^```(?:json|python)?\s*", "", extract_res)
+                extract_res = re.sub(r"\s*```$", "", extract_res)
+
+                extract_res_list = None
+
+                # Preferred format: {"triplets": [...]}
                 if extract_res.startswith("{"):
                     parsed = json.loads(extract_res)
                     extract_res_list = parsed.get("triplets", [])
-                else:
-                    if not (extract_res.startswith('[') and extract_res.endswith(']')):
-                        match = re.search(r"\[.*\]", extract_res, re.DOTALL)
-                        if not match:
-                            raise ValueError("No valid list found in response")
-                        extract_res = match.group(0)
 
-                    extract_res_list = ast.literal_eval(extract_res)
+                else:
+                    # Fallback: try to capture JSON object containing triplets
+                    json_match = re.search(r'\{.*"triplets"\s*:\s*\[.*\]\s*\}', extract_res, re.DOTALL)
+                    if json_match:
+                        parsed = json.loads(json_match.group(0))
+                        extract_res_list = parsed.get("triplets", [])
+
+                    else:
+                        # Fallback: pure list
+                        list_match = re.search(r"\[\s*\[.*\]\s*\]", extract_res, re.DOTALL)
+                        if not list_match:
+                            raise ValueError("No valid triplets structure found in response")
+
+                        extract_res_list = ast.literal_eval(list_match.group(0))
+
+                if not isinstance(extract_res_list, list):
+                    raise ValueError("Parsed triplets is not a list")
 
             except Exception as e:
                 main_logger.error(f"❌ extract res parse fail: {e} | raw={repr(extract_res)}")
@@ -183,8 +197,13 @@ class KG4:
                     if not all(isinstance(x, str) for x in (head, relation, tail)):
                         continue
 
-                    # MODIFICA: qui NON facciamo mapping/filtro schema,
-                    # lasciamo passare le raw triplets per la fase KRPO.
+                    head = head.strip()
+                    relation = relation.strip()
+                    tail = tail.strip()
+
+                    if not head or not relation or not tail:
+                        continue
+
                     valid_triplets.append([head, relation, tail])
 
             except Exception as e:
@@ -207,35 +226,41 @@ class KG4:
         main_logger.info(f"\nTri2Txt Response:\n{tri2text_res}\n{'-' * 50}\n")
         return tri2text_res
 
-    def nli_single(self, raw_sentence, sent_by_triplet):
-        main_logger.info(f"\nNLI...\n{'-' * 50}\n")
-        nli_prompt = self.nli_prompt_template.format_map({
-            "few_shot_examples": self.nli_few_shot_examples,
-            "raw_sentence": raw_sentence,
-            "kg_text": sent_by_triplet
-        })
+    def nli_single(self, raw_sentence, sent_by_triplet, max_retry=5):
+        for attempt in range(max_retry):
+            main_logger.info(f"\nNLI...\n{'-' * 50}\n")
+            nli_prompt = self.nli_prompt_template.format_map({
+                "few_shot_examples": self.nli_few_shot_examples,
+                "raw_sentence": raw_sentence,
+                "kg_text": sent_by_triplet
+            })
 
-        nli_result = None
-        while nli_result is None:
             response = self.llm.llm_chat_response(nli_prompt)
-            if response is not None and len(enc.encode(response)) <= 4196:
-                nli_result = response
+            if response is None:
+                time.sleep(2 ** attempt)
+                continue
 
-        main_logger.info(
-            f"\n{'-' * 50}\nNLI sent:\n{raw_sentence=}\n{sent_by_triplet=}\nNLI Response:\n{nli_result}\n{'-' * 50}\n"
-        )
+            nli_result = response.strip()
 
-        try:
-            json_match = re.search(r'```json\s*(.*?)```', nli_result, flags=re.DOTALL)
-            if json_match:
-                nli_result = json_match.group(1).strip()
-            nli_result = re.sub(r',\s*"reasoning"\s*:\s*".*$', '}', nli_result, flags=re.DOTALL)
-            nli_res = json.loads(nli_result.replace('\n', ''))
-            return nli_res
-        except (ValueError, SyntaxError) as e:
-            main_logger.error(f"❌ Single sentence by triple NLI result {repr(nli_result)} parseFailed {e}")
-            return self.nli_single(raw_sentence, sent_by_triplet)
+            main_logger.info(
+                f"\n{'-' * 50}\nNLI sent:\n{raw_sentence=}\n{sent_by_triplet=}\nNLI Response:\n{nli_result}\n{'-' * 50}\n"
+            )
 
+            try:
+                json_match = re.search(r'```json\s*(.*?)```', nli_result, flags=re.DOTALL)
+                if json_match:
+                    nli_result = json_match.group(1).strip()
+
+                nli_result = re.sub(r',\s*"reasoning"\s*:\s*".*$', '}', nli_result, flags=re.DOTALL)
+                nli_res = json.loads(nli_result.replace('\n', ''))
+                return nli_res
+
+            except Exception as e:
+                main_logger.error(f"❌ Single sentence by triple NLI result {repr(nli_result)} parseFailed {e}")
+                time.sleep(2 ** attempt)
+
+        return {"label": "neutral", "confidence": 0.0, "reasoning": "NLI parse failed"}
+            
     def extract_and_nli_eval(self, one_sent, extrac_prompt):
         got_triplets = self.sentence_extract_triplets(one_sent, extrac_prompt)
         if len(got_triplets) == 0:

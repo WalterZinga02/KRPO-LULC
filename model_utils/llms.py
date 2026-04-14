@@ -68,8 +68,7 @@ class LLMInvoker:
         try:
             completion = self.llm.chat.completions.create(
                 model=self.choose_model,
-                messages=mess,
-                temperature=0.2
+                messages=mess
             )
             self.llm_logger.info(f"callConsumption: {completion.usage}")
             return completion.choices[0].message.content
@@ -79,15 +78,15 @@ class LLMInvoker:
             raise RuntimeError(f"❌ OpenAI API error: {e}")
 
     def get_ans_with_retry(self, message, try_num=5):
-
         for attempt in range(try_num):
             try:
                 res_ans = self._invoke(message)
                 if isinstance(res_ans, str) and res_ans.strip():
                     return res_ans
+                self.llm_logger.warning(f"Attempt {attempt + 1}: empty response")
             except Exception as e:
-                self.llm_logger.warning(f"{attempt + 1}secondAttemptFailed: {e}")
-                time.sleep(2 ** attempt)
+                self.llm_logger.warning(f"Attempt {attempt + 1} failed: {e}")
+            time.sleep(min(2 ** attempt, 10))
         return None
 
     def llm_chat_response(self, prompt, sys_prompt=None, try_num=5):
