@@ -14,7 +14,7 @@ import tiktoken
 from post_processing import TripletPostProcessor
 
 # Settings
-choose_llm = "gpt-5-mini"
+choose_llm = "gpt-4o-mini"
 chose_dataset = "lulc_test"
 save_dir = "outputs"
 log_rm = "test1_"

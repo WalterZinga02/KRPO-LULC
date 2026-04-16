@@ -26,11 +26,13 @@ prompts/
 schemas/
     example_schema.csv           # Example schema for the datasets
 tools/
-README.md                        # General tools documentation
-requirements.txt                 # Required dependencies for the project
-run_tg_batch.py                  # Script to execute the process
-textcleaner.py                   # Script to pre process the extracted text
-run_lulc_inference.py            # Script to extract LULC triplets from dataset using the optimized prompt
+README.md                        # General tools documentation.
+requirements.txt                 # Required dependencies for the project.
+run_tg_batch.py                  # Main script to execute the KRPO pipeline on a batch of sentences.
+textcleaner.py                   # Script for preprocessing raw text extracted from PDFs.
+run_lulc_inference.py            # Script to extract LULC triplets from the dataset using the optimized prompt.
+post_processing.py               # Script to filter and validate the extracted triplets produced by run_tg_batch.py.
+subset_extractor.py              # Script to randomly sample a subset of sentences from the full LULC dataset.
 all_corpus_processed.xlsx        # Text extracted from PDFs using GROBID
 cleaned_dataset.xlsx             # Processed text for evaluation purpose
 ```

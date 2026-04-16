@@ -4,8 +4,8 @@ Return ONLY valid JSON in the following format:
 [[subject, predicate, object], ...]
 Do not include any explanation or additional text.
 
-Extract only meaningful triples from the sentences, focus on land use, land cover, environmental processes, and their changes.
-Use only information explicitly stated in the text and do NOT infer causal or temporal relations unless clearly expressed.
+Extract only meaningful non redundant and informative triples from the sentences, focus on land use, land cover, environmental processes, and their changes.
+Use only information explicitly stated in the text and do NOT infer relations unless clearly expressed.
 If no clear and informative triples can be extracted, return an empty list.
 
 Prefer the following relations when they fit naturally:
