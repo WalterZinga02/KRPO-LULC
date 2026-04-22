@@ -25,11 +25,36 @@ class TripletPostProcessor:
             "drives": "CAUSES",
             "induces": "CAUSES",
             "triggers": "CAUSES",
-            "contributes to": "CAUSES",
-            "impacts": "CAUSES",
-            "impact": "CAUSES",
-            "influences": "CAUSES",
-            "influence": "CAUSES",
+
+            # AFFECTS
+            "affects": "AFFECTS",
+            "affect": "AFFECTS",
+            "affected": "AFFECTS",
+            "impact": "AFFECTS",
+            "impacts": "AFFECTS",
+            "influence": "AFFECTS",
+            "influences": "AFFECTS",
+            "influenced by": "AFFECTS",
+            "shape": "AFFECTS",
+            "shapes": "AFFECTS",
+            "shaped by": "AFFECTS",
+
+            # CONTRIBUTION / weak causality -> meglio qui che in CAUSES
+            "contributes to": "AFFECTS",
+            "contribute to": "AFFECTS",
+            "contributor to": "AFFECTS",
+            "main contributor to": "AFFECTS",
+
+            # ASSOCIATED_WITH
+            "associated with": "ASSOCIATED_WITH",
+            "associate with": "ASSOCIATED_WITH",
+            "linked to": "ASSOCIATED_WITH",
+            "link to": "ASSOCIATED_WITH",
+            "related to": "ASSOCIATED_WITH",
+            "relationship with": "ASSOCIATED_WITH",
+            "correlated with": "ASSOCIATED_WITH",
+            "coupled with": "ASSOCIATED_WITH",
+            "connected to": "ASSOCIATED_WITH",
 
             # CONVERTED_TO
             "converted to": "CONVERTED_TO",
@@ -299,8 +324,6 @@ class TripletPostProcessor:
         if r == "DOMINATES":
             if self.looks_temporal(t):
                 return False
-            if self.looks_quantitative(t):
-                return False
             if self.looks_like_state_or_quality(t):
                 return False
             if self.looks_like_human_group(t):
@@ -346,20 +369,6 @@ class TripletPostProcessor:
             f"⚠️ Relation out of schema discarded: rel={rel} | norm={rel_norm} | sentence={raw_sent}"
         )
         return None
-    
-    def normalize_occurs_during_direction(self, head: str, tail: str):
-        h = self.clean_text_field(head)
-        t = self.clean_text_field(tail)
-
-        h_temporal = self.looks_temporal(h)
-        t_temporal = self.looks_temporal(t)
-
-        # Caso invertito: tempo -> evento
-        if h_temporal and not t_temporal:
-            self.logger.info(f"🔁 Swapped OCCURS_DURING arguments: [{h}] <-> [{t}]")
-            return t, h
-
-        return h, t
 
     def process_pair(self, pair, sentence):
         try:
@@ -376,9 +385,6 @@ class TripletPostProcessor:
 
         if simi_rel is None:
             return None
-
-        if simi_rel == "OCCURS_DURING":
-            _h, _t = self.normalize_occurs_during_direction(_h, _t)
 
         if not self.is_valid_triplet(_h, simi_rel, _t):
             self.logger.warning(

@@ -12,7 +12,7 @@ provide concise, structured, and actionable feedback on how to improve the extra
 Important constraints:
 - Assume that the target relation schema is fixed.
 - The fixed canonical relation schema is:
-  CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES
+  CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES, AFFECTS, ASSOCIATED_WITH
 - Do NOT recommend introducing new relation labels.
 - Do NOT recommend replacing canonical relation names with alternative predicates.
 - When triplets are suboptimal, suggest how they could be better expressed using the existing canonical relations.
@@ -39,7 +39,7 @@ provide concise and actionable feedback on how to improve the system prompt, so 
 Important constraints:
 - The target relation schema is fixed and must not be expanded.
 - The fixed canonical relation schema is:
-  CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES
+  CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES, AFFECTS, ASSOCIATED_WITH
 - Do NOT suggest introducing new relation labels.
 - Do NOT suggest replacing the canonical schema with alternative predicates.
 - Do NOT suggest adding examples that use predicates outside the fixed canonical schema.
@@ -63,7 +63,7 @@ This conversation is potentially part of a larger system. The output is used as 
 The target relation schema is fixed and must not be expanded.
 
 Fixed canonical relation schema:
-CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES
+CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES, AFFECTS, ASSOCIATED_WITH
 
 Here is the feedback we got for the structured system prompt used for the Relation Triplet Extraction task:
 <FEEDBACK>__feedback__</FEEDBACK>
@@ -83,7 +83,7 @@ Your task is to optimize the ORTE system prompt by following the improvement str
 Constraints:
 - Preserve the fixed target relation schema.
 - The fixed canonical relation schema is:
-  CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES
+  CAUSES, CONVERTED_TO, LOCATED_IN, OCCURS_DURING, INCREASES, DECREASES, DOMINATES, AFFECTS, ASSOCIATED_WITH
 - Do NOT introduce any relation outside this schema.
 - Do NOT add example predicates outside the canonical schema.
 - Do NOT replace the canonical relation inventory with alternative relation names.

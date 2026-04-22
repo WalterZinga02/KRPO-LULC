@@ -15,7 +15,7 @@ from post_processing import TripletPostProcessor
 
 # Settings
 choose_llm = "gpt-4o-mini"
-chose_dataset = "lulc_test"
+chose_dataset = "lulc_sample"
 save_dir = "outputs"
 log_rm = "test1_"
 
@@ -44,7 +44,8 @@ Return ONLY valid JSON in the following format:
 [[subject, predicate, object], ...]
 Do not include any explanation or additional text.
 
-Extract only meaningful non redundant and informative triples from the sentences, focus on land use, land cover, environmental processes, and their changes.
+Extract only meaningful non redundant and informative triples from the sentences, 
+focus on triples that describe land use, land cover, land cover change, their drivers, impacts, and closely related environmental or socio-economic processes
 Use only information explicitly stated in the text and do NOT infer relations unless clearly expressed.
 If no clear and informative triples can be extracted, return an empty list.
 
@@ -56,6 +57,8 @@ Prefer the following relations when they fit naturally:
 - INCREASES: Indicates a growth or rise in quantity or quality.
 - DECREASES: Indicates a reduction in quantity or quality.
 - DOMINATES: Indicates a prevailing presence or influence.
+- AFFECTS: Indicates an influence or impact that is directional but not strictly causal.
+- ASSOCIATED_WITH: Indicates a correlation without any clear direction or causality.
 
 If a relation does not match perfectly, choose the closest preferred relation that preserves the original meaning as much as possible.
 Avoid introducing new relation names unless strictly necessary.
@@ -68,8 +71,6 @@ When a sentence expresses a quantitative change:
 This includes:
 - "from X to Y" → keep "from X to Y" in the object
 - "by X" → keep "by X" in the object
-
-Do NOT create separate transition relations (e.g., FROM_TO)
 """
 
 suffix_prompt = """
