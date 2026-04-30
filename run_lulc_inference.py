@@ -10,26 +10,44 @@ from openai import OpenAI
 
 
 # CONFIG 
-MODEL_NAME = "gpt-4o-mini"
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-DATASET_PATH = "datasets/lulc_dataset.txt"
-OUTPUT_DIR = "outputs/lulc_full_inference"
+DATASET_PATH = "datasets/lulc_test.txt"
+OUTPUT_DIR = "outputs/lulc_test"
 
 RAW_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "raw_triplets.txt")
 FINAL_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "final_triplets.txt")
 ERRORS_PATH = os.path.join(OUTPUT_DIR, "parsing_errors.txt")
-FEW_SHOT_PATH = "./prompts/few_shot_examples/lulc_dataset/oie_few_shot_examples.txt"
+FEW_SHOT_PATH = "./prompts/few_shot_examples/lulc_test/oie_few_shot_examples.txt"
 
 # FINAL PROMPT
-OIE_PROMPT = """Your task is to transform the given text into a semantic graph in the form of a comprehensive list of triplets. The triplets must be in the format [Entity1, Relationship, Entity2]. The domain is land use and land cover.
+OIE_PROMPT = """Your task is to extract a semantic graph from the input text as a list of triples.
 
-1. Ensure that each extracted triplet is directly supported by explicit statements in the text and reflects clear, unambiguous relationships. Validate relationships against the context for logical consistency.
-2. Identify and extract all relevant entities, including interactions between different land cover types, environmental factors, and demographic influences. Consider broader implications of land use changes.
-3. Use precise and descriptive relationship labels. For example, use terms like "INCREASES_BY," "DECREASES_BY," "IS_A_TYPE_OF," "AFFECTS," and "CAUSES." Avoid vague terms.
-4. Include relevant time frames or conditions to clarify the context of changes, ensuring that temporal references are explicitly linked to the entities involved.
-5. Avoid extracting uncertain relationships; only include those that are well-supported by the context. Provide context-specific qualifiers for entities and relationships to enhance clarity.
+Return ONLY valid JSON in the following format:
+[[subject, predicate, object], ...]
+Do not include any explanation or additional text.
 
-In your answer, please strictly only include the triplets list and do not include any explanation or apologies.
+Extract only meaningful, non-redundant, and informative triples from the sentences. Focus on land use, land cover, land cover change, their drivers, impacts, and closely related environmental or socio-economic processes. Use only information explicitly stated in the text and DO NOT infer relations unless clearly expressed. If no clear and informative triples can be extracted, return an empty list.
+
+Prioritize the following relations when they fit naturally:
+- CAUSES: Direct causal relationship.
+- CONVERTED_TO: Transformation from one state to another.
+- LOCATED_IN: Spatial relationship.
+- OCCURS_DURING: Temporal relationship.
+- INCREASES: Growth or rise in quantity or quality.
+- DECREASES: Reduction in quantity or quality.
+- DOMINATES: Prevailing presence or influence.
+- AFFECTS: Directional impact but not strictly causal.
+- ASSOCIATED_WITH: Correlation without clear direction.
+
+When extracting triples, ensure that:
+1. Subjects and objects are precise, identifiable, and unambiguous; subjects must precede objects in relational statements.
+2. Analyze verb phrases and context carefully to align with the text. Only assign relationships if the text provides explicit support.
+3. Conduct thorough examinations of all potential relationships, including implied interactions in subordinate clauses, to ensure comprehensive extraction of relevant interactions.
+4. Prioritize clarity in argument direction; each triple must accurately reflect logical relations in accordance with the fixed canonical relation schema and maintain coherent entity boundaries.
+5. Clearly define each entity and separate temporal expressions or geographic context from the main relational structure to enhance understanding.
+
+Each extracted triple should represent distinct events or characteristics and strictly adhere to the fixed canonical relation schema, ensuring that all relevant relationships in the text are captured without ambiguity.
 """
 
 SUFFIX_PROMPT = """
@@ -47,8 +65,13 @@ def validate_input_paths() -> None:
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Required input file not found: {path}")
 
-# Initialize OpenAI client using API key from environment variables
 def get_client() -> OpenAI:
+    if os.getenv("USE_OLLAMA") == "1":
+        return OpenAI(
+            api_key="ollama",
+            base_url="http://localhost:11434/v1"
+        )
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable is not set.")
@@ -85,7 +108,7 @@ def call_llm(client: OpenAI, prompt: str, model_name: str, max_retries: int = 5)
             completion = client.chat.completions.create(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
+                temperature=0,
             )
             content = completion.choices[0].message.content
             if isinstance(content, str) and content.strip():
