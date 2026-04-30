@@ -1,11 +1,11 @@
 import re
-
+import spacy
 
 class TripletPostProcessor:
     def __init__(self, rels, logger):
         self.rels = rels
         self.logger = logger
-
+        self.nlp = spacy.load("en_core_web_sm")
         self.rels_set = set(self.rels.tolist())
 
         self.schema_norm = {
@@ -17,7 +17,6 @@ class TripletPostProcessor:
             # CAUSES
             "causes": "CAUSES",
             "cause": "CAUSES",
-            "caused by": "CAUSES",
             "leads to": "CAUSES",
             "lead to": "CAUSES",
             "results in": "CAUSES",
@@ -25,6 +24,10 @@ class TripletPostProcessor:
             "drives": "CAUSES",
             "induces": "CAUSES",
             "triggers": "CAUSES",
+            "forces": "CAUSES",
+            "resulting from": "CAUSES",
+            "causing": "CAUSES",
+            "responsible for": "CAUSES",
 
             # AFFECTS
             "affects": "AFFECTS",
@@ -34,12 +37,8 @@ class TripletPostProcessor:
             "impacts": "AFFECTS",
             "influence": "AFFECTS",
             "influences": "AFFECTS",
-            "influenced by": "AFFECTS",
             "shape": "AFFECTS",
             "shapes": "AFFECTS",
-            "shaped by": "AFFECTS",
-
-            # CONTRIBUTION / weak causality -> meglio qui che in CAUSES
             "contributes to": "AFFECTS",
             "contribute to": "AFFECTS",
             "contributor to": "AFFECTS",
@@ -141,6 +140,69 @@ class TripletPostProcessor:
             self.normalize_relation(k): v
             for k, v in raw_rel_mapping.items()
         }
+
+    def handle_passive_relation(self, rel_norm, head, tail):
+        passive_map = {
+            "caused by": "CAUSES",
+            "influenced by": "AFFECTS",
+            "driven by": "CAUSES",
+            "shaped by": "AFFECTS",
+            "hindered by": "AFFECTS",
+            "affected by": "AFFECTS",
+            "triggered by": "CAUSES",
+            "constrained by": "AFFECTS",
+            "limited by": "AFFECTS",
+            "facilitated by": "AFFECTS",
+            "replaced by": "CONVERTED_TO",
+        }
+
+        if rel_norm in passive_map:
+            mapped_rel = passive_map[rel_norm]
+            self.logger.info(
+                f"🔁 Passive relation normalized with swap: "
+                f"[{head}, {rel_norm}, {tail}] -> [{tail}, {mapped_rel}, {head}]"
+            )
+            return tail, mapped_rel, head
+
+        return head, None, tail
+    
+    def has_named_location(self, text: str) -> bool:
+        doc = self.nlp(self.clean_text_field(text))
+        allowed_labels = {"GPE", "LOC"}
+        return any(ent.label_ in allowed_labels for ent in doc.ents)
+    
+    def looks_like_geographic_descriptor(self, text: str) -> bool:
+        t = self.clean_text_field(text).lower()
+
+        patterns = [
+            r"\bbasin(s)?\b",
+            r"\bcatchment(s)?\b",
+            r"\bwatershed(s)?\b",
+            r"\bdelta(s)?\b",
+            r"\bforest(s)?\b",
+            r"\bsavanna(s)?\b",
+            r"\bwoodland(s)?\b",
+            r"\blandscape(s)?\b",
+            r"\bvalley(s)?\b",
+            r"\bplateau(s)?\b",
+            r"\bplain(s)?\b",
+            r"\bhighland(s)?\b",
+            r"\blowland(s)?\b",
+            r"\bvillage(s)?\b",
+            r"\bcity\b|\bcities\b",
+            r"\btown(s)?\b",
+            r"\bcountry\b|\bcountries\b",
+            r"\bprovince(s)?\b",
+            r"\bdistrict(s)?\b",
+            r"\bstation(s)?\b",
+            r"\briver(s)?\b",
+            r"\blake(s)?\b",
+            r"\bcoast(al)?\b",
+            r"\bstudy\s+(area|site|region)\b",
+            r"\b(region|area|zone|territory|site|location)s?\b",
+        ]
+
+        return any(re.search(p, t) for p in patterns)
 
     def clean_text_field(self, value) -> str:
         if value is None:
@@ -336,11 +398,13 @@ class TripletPostProcessor:
                 return False
             if self.looks_quantitative(t):
                 return False
+            if not (self.has_named_location(t) or self.looks_like_geographic_descriptor(t)):
+                return False
             return True
-
+        
         # increases/decreases: molto permissivo, purché non sia placeholder
         if r in {"INCREASES", "DECREASES"}:
-            return True
+                    return True
 
         # causes: permissivo
         if r == "CAUSES":
@@ -366,7 +430,7 @@ class TripletPostProcessor:
             return special
 
         self.logger.warning(
-            f"⚠️ Relation out of schema discarded: rel={rel} | norm={rel_norm} | sentence={raw_sent}"
+            f"Relation out of schema discarded: rel={rel} | norm={rel_norm} | sentence={raw_sent}"
         )
         return None
 
@@ -381,16 +445,23 @@ class TripletPostProcessor:
         _r = self.clean_text_field(_r)
         _t = self.clean_text_field(_t)
 
-        simi_rel = self.get_simi_rel_by_relcanon(_r, sentence, (_h, _r, _t))
+        rel_norm = self.normalize_relation(_r)
+
+        # gestione speciale relazioni passive
+        new_h, passive_rel, new_t = self.handle_passive_relation(rel_norm, _h, _t)
+        if passive_rel is not None:
+            _h, simi_rel, _t = new_h, passive_rel, new_t
+        else:
+            simi_rel = self.get_simi_rel_by_relcanon(_r, sentence, (_h, _r, _t))
 
         if simi_rel is None:
             return None
 
         if not self.is_valid_triplet(_h, simi_rel, _t):
             self.logger.warning(
-                f"⚠️ Invalid semantic triplet discarded: [{_h}, {simi_rel}, {_t}]"
+                f"Invalid semantic triplet discarded: [{_h}, {simi_rel}, {_t}]"
             )
             return None
-        
+
         final_tri = [_h, simi_rel, _t]
         return final_tri, entailment
