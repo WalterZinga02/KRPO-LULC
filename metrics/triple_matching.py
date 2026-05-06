@@ -18,9 +18,9 @@ Triple = Tuple[str, str, str]
 FILE_A = "GPT4omini_sample_results.txt"
 FILE_B = "LLaMa3_sample_results.txt"
 
-SUBJECT_THRESHOLD = 0.45
+SUBJECT_THRESHOLD = 0.65
 RELATION_THRESHOLD = 1.0
-OBJECT_THRESHOLD = 0.45
+OBJECT_THRESHOLD = 0.65
 
 
 # =========================  
@@ -38,13 +38,15 @@ def text_similarity(a: str, b: str) -> float:
     a = normalize_text(a)
     b = normalize_text(b)
 
+    # Se entrambi sono vuoti, consideriamo la similarità come 1.0
     if not a and not b:
         return 1.0
 
+    # Se uno dei due è vuoto, la similarità è 0.0
     if not a or not b:
         return 0.0
 
-    return fuzz.token_set_ratio(a, b) / 100.0
+    return fuzz.ratio(a, b) / 100.0
 
 
 def relation_similarity(a: str, b: str) -> float:
