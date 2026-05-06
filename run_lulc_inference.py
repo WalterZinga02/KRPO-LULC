@@ -16,7 +16,7 @@ from post_processing import TripletPostProcessor
 # CONFIG
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-DATASET_NAME = "lulc_test"  # change this to switch datasets (must have corresponding .txt, schema, and few-shot files)
+DATASET_NAME = "lulc_sample"  # change this to switch datasets (must have corresponding .txt, schema, and few-shot files)
 
 DATASET_PATH = f"datasets/{DATASET_NAME}.txt"
 OUTPUT_DIR = f"outputs/{DATASET_NAME}"
@@ -42,6 +42,8 @@ Do NOT use relation labels outside the approved schema.
 Do not include any explanation or additional text.
 
 Extract only meaningful, non-redundant, and informative triples from the sentences. Focus on land use, land cover, land cover change, their drivers, impacts, and closely related environmental or socio-economic processes. Use only information explicitly stated in the text and DO NOT infer relations unless clearly expressed. If no clear and informative triples can be extracted, return an empty list.
+
+Input sentences may contain formatting noise, fragmented text, OCR/PDF extraction artifacts, or unclear information. In such cases, extract triples only if a meaningful and explicitly supported relation can still be identified; otherwise, return an empty list.
 
 Prioritize the following relations when they fit naturally:
 - CAUSES: Direct causal relationship.
