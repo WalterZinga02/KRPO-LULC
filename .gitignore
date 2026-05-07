@@ -15,6 +15,7 @@ logs/
 *.log
 
 metrics/*.txt
+metrics/*xlsx
 
 tools/*.txt
 tools/*xlsx

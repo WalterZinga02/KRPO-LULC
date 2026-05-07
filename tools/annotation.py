@@ -4,7 +4,7 @@ import pandas as pd
 
 SENTENCES_FILE = "sentences.txt"
 TRIPLETS_FILE = "triplets.txt"
-OUTPUT_FILE = "triplets_expanded_compact.xlsx"
+OUTPUT_FILE = "triplets_expanded.xlsx"
 
 sentences = Path(SENTENCES_FILE).read_text(encoding="utf-8").splitlines()
 triplets_lines = Path(TRIPLETS_FILE).read_text(encoding="utf-8").splitlines()

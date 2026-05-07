@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 import numpy as np
+import pandas as pd
 from rapidfuzz import fuzz
 from scipy.optimize import linear_sum_assignment
 
@@ -17,13 +18,16 @@ Triple = Tuple[str, str, str]
 
 FILE_A = "GPT4omini_sample_results.txt"
 FILE_B = "LLaMa3_sample_results.txt"
+SENTENCES_FILE = "sentences.txt"
+
+OUTPUT_FILE = "triple_matching_analysis.xlsx"
 
 SUBJECT_THRESHOLD = 0.65
 RELATION_THRESHOLD = 1.0
 OBJECT_THRESHOLD = 0.65
 
 
-# =========================  
+# =========================
 # NORMALIZATION / SIMILARITY
 # =========================
 
@@ -38,11 +42,9 @@ def text_similarity(a: str, b: str) -> float:
     a = normalize_text(a)
     b = normalize_text(b)
 
-    # Se entrambi sono vuoti, consideriamo la similarità come 1.0
     if not a and not b:
         return 1.0
 
-    # Se uno dei due è vuoto, la similarità è 0.0
     if not a or not b:
         return 0.0
 
@@ -73,7 +75,6 @@ def parse_triples_line(line: str) -> List[Triple]:
 
     try:
         data = json.loads(line)
-
     except json.JSONDecodeError:
         print(f"Warning: invalid JSON line skipped:\n{line}")
         return []
@@ -89,19 +90,20 @@ def parse_triples_line(line: str) -> List[Triple]:
 
 def read_triples_file(path: str) -> List[List[Triple]]:
     lines = Path(path).read_text(encoding="utf-8").splitlines()
-
     return [parse_triples_line(line) for line in lines]
+
+
+def read_sentences_file(path: str) -> List[str]:
+    return Path(path).read_text(encoding="utf-8").splitlines()
 
 
 # =========================
 # MATCHING
 # =========================
 
-def count_matches(triples_a: List[Triple], triples_b: List[Triple]) -> int:
-
+def get_hungarian_pairs(triples_a: List[Triple], triples_b: List[Triple]):
     if not triples_a or not triples_b:
-        print("\n==============================")
-        return 0
+        return []
 
     similarity_matrix = np.zeros((len(triples_a), len(triples_b)))
     component_scores = {}
@@ -114,14 +116,9 @@ def count_matches(triples_a: List[Triple], triples_b: List[Triple]) -> int:
                 triple_b
             )
 
-            similarity = (
-                sim_subject +
-                sim_relation +
-                sim_object
-            ) / 3
+            similarity = (sim_subject + sim_relation + sim_object) / 3
 
             similarity_matrix[i, j] = similarity
-
             component_scores[(i, j)] = (
                 sim_subject,
                 sim_relation,
@@ -129,66 +126,29 @@ def count_matches(triples_a: List[Triple], triples_b: List[Triple]) -> int:
             )
 
     cost_matrix = 1 - similarity_matrix
-
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-    matches = 0
-
-    matched_a = set()
-    matched_b = set()
+    pairs = []
 
     for i, j in zip(row_ind, col_ind):
-
         sim_subject, sim_relation, sim_object = component_scores[(i, j)]
 
-        if (
+        is_match = (
             sim_subject >= SUBJECT_THRESHOLD
             and sim_relation >= RELATION_THRESHOLD
             and sim_object >= OBJECT_THRESHOLD
-        ):
+        )
 
-            matches += 1
+        pairs.append({
+            "triple_a": triples_a[i],
+            "status": "MATCH" if is_match else "NOT_MATCH",
+            "triple_b": triples_b[j],
+            "sim_subject": sim_subject,
+            "sim_relation": sim_relation,
+            "sim_object": sim_object,
+        })
 
-            matched_a.add(i)
-            matched_b.add(j)
-
-            print("\nMATCH")
-            print(f"A: {triples_a[i]}")
-            print(f"B: {triples_b[j]}")
-            print(f"subject:  {sim_subject:.4f}")
-            print(f"relation: {sim_relation:.4f}")
-            print(f"object:   {sim_object:.4f}")
-
-    print("\n--- NOT MATCHED A ---")
-
-    for i, triple in enumerate(triples_a):
-        if i not in matched_a:
-            print(f"A: {triple}")
-
-    print("\n--- NOT MATCHED B ---")
-
-    for j, triple in enumerate(triples_b):
-        if j not in matched_b:
-            print(f"B: {triple}")
-
-    print("\n==============================")
-
-    return matches
-
-
-def compute_metrics(total_a: int, total_b: int, total_matches: int):
-
-    precision = total_matches / total_a if total_a else 0.0
-
-    recall = total_matches / total_b if total_b else 0.0
-
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if precision + recall > 0
-        else 0.0
-    )
-
-    return precision, recall, f1
+    return pairs
 
 
 # =========================
@@ -196,53 +156,53 @@ def compute_metrics(total_a: int, total_b: int, total_matches: int):
 # =========================
 
 def main() -> None:
-
     data_a = read_triples_file(FILE_A)
     data_b = read_triples_file(FILE_B)
+    sentences = read_sentences_file(SENTENCES_FILE)
 
     if len(data_a) != len(data_b):
-
         raise ValueError(
-            f"The two files have different numbers of lines: "
+            f"The two triple files have different numbers of lines: "
             f"{len(data_a)} vs {len(data_b)}"
         )
 
-    total_a = 0
-    total_b = 0
-    total_matches = 0
-
-    for triples_a, triples_b in zip(data_a, data_b):
-
-        total_a += len(triples_a)
-        total_b += len(triples_b)
-
-        total_matches += count_matches(
-            triples_a,
-            triples_b
+    if len(sentences) != len(data_a):
+        raise ValueError(
+            f"The sentence file and triple files have different numbers of lines: "
+            f"{len(sentences)} vs {len(data_a)}"
         )
 
-    precision, recall, f1 = compute_metrics(
-        total_a,
-        total_b,
-        total_matches
-    )
+    rows = []
 
-    print("\n=== MODEL GPT 4o mini vs MODEL LLaMa3 ===")
+    for sentence_id, (sentence, triples_a, triples_b) in enumerate(
+        zip(sentences, data_a, data_b),
+        start=1
+    ):
+        pairs = get_hungarian_pairs(triples_a, triples_b)
 
-    print(f"model_a_file:       {FILE_A}")
-    print(f"model_b_file:       {FILE_B}")
+        if not pairs:
+            continue
 
-    print(f"subject_threshold:  {SUBJECT_THRESHOLD}")
-    print(f"relation_threshold: {RELATION_THRESHOLD}")
-    print(f"object_threshold:   {OBJECT_THRESHOLD}")
+        first_row = True
 
-    print(f"total_triples_a:    {total_a}")
-    print(f"total_triples_b:    {total_b}")
-    print(f"total_matches:      {total_matches}")
+        for pair in pairs:
+            rows.append({
+                "sentence_id": sentence_id if first_row else "",
+                "sentence": sentence if first_row else "",
+                "triple_txt1": str(pair["triple_a"]),
+                "status": pair["status"],
+                "triple_txt2": str(pair["triple_b"]),
+                "subject_similarity": round(pair["sim_subject"], 4),
+                "relation_similarity": round(pair["sim_relation"], 4),
+                "object_similarity": round(pair["sim_object"], 4),
+            })
 
-    print(f"precision:          {precision:.4f}")
-    print(f"recall:             {recall:.4f}")
-    print(f"f1:                 {f1:.4f}")
+            first_row = False
+
+    df = pd.DataFrame(rows)
+    df.to_excel(OUTPUT_FILE, index=False)
+
+    print(f"Saved Excel file: {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
