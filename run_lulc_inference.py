@@ -30,22 +30,17 @@ SCHEMA_PATH = f"./schemas/{DATASET_NAME}_schema.csv"
 
 
 # SYSTEM PROMPT
-OIE_PROMPT = """Your task is to extract a semantic graph from the input text as a list of triples.
+OIE_PROMPT = """Our task is to extract a semantic graph from the input text as a list of triples.
 
 Return ONLY valid JSON in the following format:
 [["subject", "predicate", "object"], ...]
-
-Every subject, predicate, and object MUST be enclosed in double quotes.
-Do NOT use unquoted strings.
-Do NOT use single quotes.
-Do NOT use relation labels outside the approved schema.
 Do not include any explanation or additional text.
 
-Extract only meaningful, non-redundant, and informative triples from the sentences. Focus on land use, land cover, land cover change, their drivers, impacts, and closely related environmental or socio-economic processes.
-
-Use only information explicitly stated in the text and DO NOT infer relations unless clearly expressed.
-
+Extract only meaningful, non-redundant, and informative triples from the sentences. 
+Focus on land use, land cover, land cover change, their drivers, impacts, and closely related environmental or socio-economic processes. 
+Use only information explicitly stated in the text and DO NOT infer relations unless clearly expressed. 
 If no clear and informative triples can be extracted, return an empty list.
+
 
 Prioritize the following relations when they fit naturally:
 - CAUSES: Direct causal relationship.
@@ -64,7 +59,8 @@ When extracting triples:
 3. Avoid redundant or inferred triples.
 4. Maintain correct directionality.
 
-Each extracted triple must strictly follow the canonical relation schema.
+Each extracted triple should represent distinct events or characteristics and strictly adhere to the fixed
+canonical relation schema, ensuring that all relevant relationships in the text are captured without ambiguity.
 """
 
 
@@ -181,10 +177,10 @@ def call_llm(
                         )
                     }
                 ],
-
-                temperature=0,
-                max_tokens=1200
+                max_completion_tokens=1200
             )
+
+            #print(completion.model)
 
             content = completion.choices[0].message.content
 

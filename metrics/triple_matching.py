@@ -18,13 +18,11 @@ Triple = Tuple[str, str, str]
 FILE_A = "GPT4omini_sample_results.txt"
 FILE_B = "LLaMa3_sample_results.txt"
 
-SUBJECT_THRESHOLD = 0.65
-RELATION_THRESHOLD = 1.0
-OBJECT_THRESHOLD = 0.65
+ENTITY_THRESHOLD = 0.35
 
 
-# =========================  
-# NORMALIZATION / SIMILARITY
+# =========================
+# NORMALIZATION
 # =========================
 
 def normalize_text(text: str) -> str:
@@ -34,31 +32,105 @@ def normalize_text(text: str) -> str:
     return text
 
 
-def text_similarity(a: str, b: str) -> float:
+# =========================
+# PAIRING SIMILARITY
+# =========================
+
+def basic_entity_similarity(a: str, b: str) -> float:
     a = normalize_text(a)
     b = normalize_text(b)
 
-    # Se entrambi sono vuoti, consideriamo la similarità come 1.0
     if not a and not b:
         return 1.0
 
-    # Se uno dei due è vuoto, la similarità è 0.0
     if not a or not b:
         return 0.0
 
     return fuzz.ratio(a, b) / 100.0
 
 
-def relation_similarity(a: str, b: str) -> float:
-    return 1.0 if normalize_text(a) == normalize_text(b) else 0.0
+def basic_relation_similarity(a: str, b: str) -> float:
+    return 1.0 if relations_match(a, b) else 0.0
 
 
-def triple_similarity(t1: Triple, t2: Triple):
-    sim_subject = text_similarity(t1[0], t2[0])
-    sim_relation = relation_similarity(t1[1], t2[1])
-    sim_object = text_similarity(t1[2], t2[2])
+def relations_match(rel1: str, rel2: str) -> bool:
+    r1 = normalize_text(rel1).upper()
+    r2 = normalize_text(rel2).upper()
 
-    return sim_subject, sim_relation, sim_object
+    if r1 == r2:
+        return True
+
+    equivalent_relations = {
+        frozenset(["CAUSES", "AFFECTS"]),
+    }
+
+    return frozenset([r1, r2]) in equivalent_relations
+
+
+def pairing_similarity(triple_a: Triple, triple_b: Triple) -> float:
+    sim_subject = basic_entity_similarity(triple_a[0], triple_b[0])
+    sim_relation = basic_relation_similarity(triple_a[1], triple_b[1])
+    sim_object = basic_entity_similarity(triple_a[2], triple_b[2])
+
+    return (sim_subject + sim_relation + sim_object) / 3
+
+
+# =========================
+# FINAL MATCH SCORE
+# =========================
+
+def entity_score(a: str, b: str) -> float:
+    a = normalize_text(a)
+    b = normalize_text(b)
+
+    if not a and not b:
+        return 1.0
+
+    if not a or not b:
+        return 0.0
+
+    r = fuzz.ratio(a, b) / 100.0
+    ts = fuzz.token_sort_ratio(a, b) / 100.0
+    pr = fuzz.partial_ratio(a, b) / 100.0
+
+    return round(0.4 * ts + 0.4 * r + 0.2 * pr, 4)
+
+
+def match_score(
+    triple1: Triple,
+    triple2: Triple,
+    entity_threshold: float = ENTITY_THRESHOLD,
+):
+    src1, rel1, tgt1 = triple1
+    src2, rel2, tgt2 = triple2
+
+    relation_match = relations_match(rel1, rel2)
+
+    if not relation_match:
+        return {
+            "is_match": False,
+            "score": 0.0,
+            "src_score": 0.0,
+            "tgt_score": 0.0,
+            "relation_match": False,
+        }
+
+    src_score = entity_score(src1, src2)
+    tgt_score = entity_score(tgt1, tgt2)
+    final_score = round((src_score + tgt_score) / 2, 4)
+
+    is_match = (
+        src_score >= entity_threshold
+        and tgt_score >= entity_threshold
+    )
+
+    return {
+        "is_match": is_match,
+        "score": final_score,
+        "src_score": src_score,
+        "tgt_score": tgt_score,
+        "relation_match": True,
+    }
 
 
 # =========================
@@ -89,7 +161,6 @@ def parse_triples_line(line: str) -> List[Triple]:
 
 def read_triples_file(path: str) -> List[List[Triple]]:
     lines = Path(path).read_text(encoding="utf-8").splitlines()
-
     return [parse_triples_line(line) for line in lines]
 
 
@@ -104,29 +175,16 @@ def count_matches(triples_a: List[Triple], triples_b: List[Triple]) -> int:
         return 0
 
     similarity_matrix = np.zeros((len(triples_a), len(triples_b)))
-    component_scores = {}
+    pair_scores = {}
 
     for i, triple_a in enumerate(triples_a):
         for j, triple_b in enumerate(triples_b):
 
-            sim_subject, sim_relation, sim_object = triple_similarity(
-                triple_a,
-                triple_b
-            )
+            # Used only to decide Hungarian pairing
+            similarity_matrix[i, j] = pairing_similarity(triple_a, triple_b)
 
-            similarity = (
-                sim_subject +
-                sim_relation +
-                sim_object
-            ) / 3
-
-            similarity_matrix[i, j] = similarity
-
-            component_scores[(i, j)] = (
-                sim_subject,
-                sim_relation,
-                sim_object
-            )
+            # Used only to decide MATCH / NOT_MATCH after pairing
+            pair_scores[(i, j)] = match_score(triple_a, triple_b)
 
     cost_matrix = 1 - similarity_matrix
 
@@ -134,41 +192,41 @@ def count_matches(triples_a: List[Triple], triples_b: List[Triple]) -> int:
 
     matches = 0
 
-    matched_a = set()
-    matched_b = set()
+    paired_a = set()
+    paired_b = set()
 
     for i, j in zip(row_ind, col_ind):
 
-        sim_subject, sim_relation, sim_object = component_scores[(i, j)]
+        result = pair_scores[(i, j)]
 
-        if (
-            sim_subject >= SUBJECT_THRESHOLD
-            and sim_relation >= RELATION_THRESHOLD
-            and sim_object >= OBJECT_THRESHOLD
-        ):
+        paired_a.add(i)
+        paired_b.add(j)
 
+        if result["is_match"]:
             matches += 1
+            label = "MATCH"
+        else:
+            label = "NOT_MATCH"
 
-            matched_a.add(i)
-            matched_b.add(j)
+        print(f"\n{label}")
+        print(f"A: {triples_a[i]}")
+        print(f"B: {triples_b[j]}")
+        print(f"score:              {result['score']:.4f}")
+        print(f"subject:            {result['src_score']:.4f}")
+        print(f"object:             {result['tgt_score']:.4f}")
+        print(f"relation:           {'1.0000' if result['relation_match'] else '0.0000'}")
+        print(f"pairing_similarity: {similarity_matrix[i, j]:.4f}")
 
-            print("\nMATCH")
-            print(f"A: {triples_a[i]}")
-            print(f"B: {triples_b[j]}")
-            print(f"subject:  {sim_subject:.4f}")
-            print(f"relation: {sim_relation:.4f}")
-            print(f"object:   {sim_object:.4f}")
-
-    print("\n--- NOT MATCHED A ---")
+    print("\n--- UNPAIRED A ---")
 
     for i, triple in enumerate(triples_a):
-        if i not in matched_a:
+        if i not in paired_a:
             print(f"A: {triple}")
 
-    print("\n--- NOT MATCHED B ---")
+    print("\n--- UNPAIRED B ---")
 
     for j, triple in enumerate(triples_b):
-        if j not in matched_b:
+        if j not in paired_b:
             print(f"B: {triple}")
 
     print("\n==============================")
@@ -179,7 +237,6 @@ def count_matches(triples_a: List[Triple], triples_b: List[Triple]) -> int:
 def compute_metrics(total_a: int, total_b: int, total_matches: int):
 
     precision = total_matches / total_a if total_a else 0.0
-
     recall = total_matches / total_b if total_b else 0.0
 
     f1 = (
@@ -231,10 +288,9 @@ def main() -> None:
 
     print(f"model_a_file:       {FILE_A}")
     print(f"model_b_file:       {FILE_B}")
-
-    print(f"subject_threshold:  {SUBJECT_THRESHOLD}")
-    print(f"relation_threshold: {RELATION_THRESHOLD}")
-    print(f"object_threshold:   {OBJECT_THRESHOLD}")
+    print(f"entity_threshold:   {ENTITY_THRESHOLD}")
+    print("relation_match:     exact")
+    print("pairing_similarity: strict ratio-based")
 
     print(f"total_triples_a:    {total_a}")
     print(f"total_triples_b:    {total_b}")

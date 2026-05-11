@@ -22,13 +22,11 @@ SENTENCES_FILE = "sentences.txt"
 
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
 
-SUBJECT_THRESHOLD = 0.65
-RELATION_THRESHOLD = 1.0
-OBJECT_THRESHOLD = 0.65
+ENTITY_THRESHOLD = 0.35
 
 
 # =========================
-# NORMALIZATION / SIMILARITY
+# NORMALIZATION
 # =========================
 
 def normalize_text(text: str) -> str:
@@ -38,7 +36,26 @@ def normalize_text(text: str) -> str:
     return text
 
 
-def text_similarity(a: str, b: str) -> float:
+def relations_match(rel1: str, rel2: str) -> bool:
+    r1 = normalize_text(rel1).upper()
+    r2 = normalize_text(rel2).upper()
+
+    if r1 == r2:
+        return True
+
+    equivalent_relations = {
+        frozenset(["CAUSES", "AFFECTS"]),
+    }
+
+    return frozenset([r1, r2]) in equivalent_relations
+
+
+# =========================
+# PAIRING SIMILARITY
+# Used only by Hungarian
+# =========================
+
+def basic_entity_similarity(a: str, b: str) -> float:
     a = normalize_text(a)
     b = normalize_text(b)
 
@@ -51,16 +68,75 @@ def text_similarity(a: str, b: str) -> float:
     return fuzz.ratio(a, b) / 100.0
 
 
-def relation_similarity(a: str, b: str) -> float:
-    return 1.0 if normalize_text(a) == normalize_text(b) else 0.0
+def basic_relation_similarity(a: str, b: str) -> float:
+    return 1.0 if relations_match(a, b) else 0.0
 
 
-def triple_similarity(t1: Triple, t2: Triple):
-    sim_subject = text_similarity(t1[0], t2[0])
-    sim_relation = relation_similarity(t1[1], t2[1])
-    sim_object = text_similarity(t1[2], t2[2])
+def pairing_similarity(triple_a: Triple, triple_b: Triple) -> float:
+    sim_subject = basic_entity_similarity(triple_a[0], triple_b[0])
+    sim_relation = basic_relation_similarity(triple_a[1], triple_b[1])
+    sim_object = basic_entity_similarity(triple_a[2], triple_b[2])
 
-    return sim_subject, sim_relation, sim_object
+    return (sim_subject + sim_relation + sim_object) / 3
+
+
+# =========================
+# FINAL MATCH SCORE
+# Supervisor logic
+# =========================
+
+def entity_score(a: str, b: str) -> float:
+    a = normalize_text(a)
+    b = normalize_text(b)
+
+    if not a and not b:
+        return 1.0
+
+    if not a or not b:
+        return 0.0
+
+    r = fuzz.ratio(a, b) / 100.0
+    ts = fuzz.token_sort_ratio(a, b) / 100.0
+    pr = fuzz.partial_ratio(a, b) / 100.0
+
+    return round(0.4 * ts + 0.4 * r + 0.2 * pr, 4)
+
+
+def match_score(
+    triple1: Triple,
+    triple2: Triple,
+    entity_threshold: float = ENTITY_THRESHOLD,
+):
+    src1, rel1, tgt1 = triple1
+    src2, rel2, tgt2 = triple2
+
+    relation_match = relations_match(rel1, rel2)
+
+    if not relation_match:
+        return {
+            "is_match": False,
+            "score": 0.0,
+            "src_score": 0.0,
+            "tgt_score": 0.0,
+            "relation_match": False,
+        }
+
+    src_score = entity_score(src1, src2)
+    tgt_score = entity_score(tgt1, tgt2)
+    final_score = round((src_score + tgt_score) / 2, 4)
+
+    is_match = (
+        src_score >= entity_threshold
+        and tgt_score >= entity_threshold
+    )
+
+    return {
+        "is_match": is_match,
+        "score": final_score,
+        "src_score": src_score,
+        "tgt_score": tgt_score,
+        "relation_match": True,
+    }
 
 
 # =========================
@@ -106,24 +182,16 @@ def get_hungarian_pairs(triples_a: List[Triple], triples_b: List[Triple]):
         return []
 
     similarity_matrix = np.zeros((len(triples_a), len(triples_b)))
-    component_scores = {}
+    pair_scores = {}
 
     for i, triple_a in enumerate(triples_a):
         for j, triple_b in enumerate(triples_b):
 
-            sim_subject, sim_relation, sim_object = triple_similarity(
-                triple_a,
-                triple_b
-            )
+            # Used only for Hungarian pairing
+            similarity_matrix[i, j] = pairing_similarity(triple_a, triple_b)
 
-            similarity = (sim_subject + sim_relation + sim_object) / 3
-
-            similarity_matrix[i, j] = similarity
-            component_scores[(i, j)] = (
-                sim_subject,
-                sim_relation,
-                sim_object
-            )
+            # Used only for MATCH / NOT_MATCH decision
+            pair_scores[(i, j)] = match_score(triple_a, triple_b)
 
     cost_matrix = 1 - similarity_matrix
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
@@ -131,21 +199,17 @@ def get_hungarian_pairs(triples_a: List[Triple], triples_b: List[Triple]):
     pairs = []
 
     for i, j in zip(row_ind, col_ind):
-        sim_subject, sim_relation, sim_object = component_scores[(i, j)]
-
-        is_match = (
-            sim_subject >= SUBJECT_THRESHOLD
-            and sim_relation >= RELATION_THRESHOLD
-            and sim_object >= OBJECT_THRESHOLD
-        )
+        result = pair_scores[(i, j)]
 
         pairs.append({
             "triple_a": triples_a[i],
-            "status": "MATCH" if is_match else "NOT_MATCH",
+            "status": "MATCH" if result["is_match"] else "NOT_MATCH",
             "triple_b": triples_b[j],
-            "sim_subject": sim_subject,
-            "sim_relation": sim_relation,
-            "sim_object": sim_object,
+            "score": result["score"],
+            "subject_similarity": result["src_score"],
+            "relation_similarity": 1.0 if result["relation_match"] else 0.0,
+            "object_similarity": result["tgt_score"],
+            "pairing_similarity": similarity_matrix[i, j],
         })
 
     return pairs
@@ -192,9 +256,11 @@ def main() -> None:
                 "triple_txt1": str(pair["triple_a"]),
                 "status": pair["status"],
                 "triple_txt2": str(pair["triple_b"]),
-                "subject_similarity": round(pair["sim_subject"], 4),
-                "relation_similarity": round(pair["sim_relation"], 4),
-                "object_similarity": round(pair["sim_object"], 4),
+                "score": round(pair["score"], 4),
+                "subject_similarity": round(pair["subject_similarity"], 4),
+                "relation_similarity": round(pair["relation_similarity"], 4),
+                "object_similarity": round(pair["object_similarity"], 4),
+                "pairing_similarity": round(pair["pairing_similarity"], 4),
             })
 
             first_row = False
