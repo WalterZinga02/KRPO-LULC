@@ -23,6 +23,7 @@ SENTENCES_FILE = "sentences.txt"
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
 
 ENTITY_THRESHOLD = 0.35
+FINAL_SCORE_THRESHOLD = 0.45
 
 
 # =========================
@@ -82,7 +83,6 @@ def pairing_similarity(triple_a: Triple, triple_b: Triple) -> float:
 
 # =========================
 # FINAL MATCH SCORE
-# Supervisor logic
 # =========================
 
 def entity_score(a: str, b: str) -> float:
@@ -128,6 +128,7 @@ def match_score(
     is_match = (
         src_score >= entity_threshold
         and tgt_score >= entity_threshold
+        and final_score >= FINAL_SCORE_THRESHOLD
     )
 
     return {
@@ -187,10 +188,10 @@ def get_hungarian_pairs(triples_a: List[Triple], triples_b: List[Triple]):
     for i, triple_a in enumerate(triples_a):
         for j, triple_b in enumerate(triples_b):
 
-            # Used only for Hungarian pairing
+            # Used only internally by Hungarian
             similarity_matrix[i, j] = pairing_similarity(triple_a, triple_b)
 
-            # Used only for MATCH / NOT_MATCH decision
+            # Used for final MATCH / NOT_MATCH decision
             pair_scores[(i, j)] = match_score(triple_a, triple_b)
 
     cost_matrix = 1 - similarity_matrix
@@ -209,10 +210,22 @@ def get_hungarian_pairs(triples_a: List[Triple], triples_b: List[Triple]):
             "subject_similarity": result["src_score"],
             "relation_similarity": 1.0 if result["relation_match"] else 0.0,
             "object_similarity": result["tgt_score"],
-            "pairing_similarity": similarity_matrix[i, j],
         })
 
     return pairs
+
+
+def compute_metrics(total_a: int, total_b: int, total_matches: int):
+    precision = total_matches / total_a if total_a else 0.0
+    recall = total_matches / total_b if total_b else 0.0
+
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if precision + recall > 0
+        else 0.0
+    )
+
+    return precision, recall, f1
 
 
 # =========================
@@ -238,10 +251,17 @@ def main() -> None:
 
     rows = []
 
+    total_a = 0
+    total_b = 0
+    total_matches = 0
+
     for sentence_id, (sentence, triples_a, triples_b) in enumerate(
         zip(sentences, data_a, data_b),
         start=1
     ):
+        total_a += len(triples_a)
+        total_b += len(triples_b)
+
         pairs = get_hungarian_pairs(triples_a, triples_b)
 
         if not pairs:
@@ -250,6 +270,9 @@ def main() -> None:
         first_row = True
 
         for pair in pairs:
+            if pair["status"] == "MATCH":
+                total_matches += 1
+
             rows.append({
                 "sentence_id": sentence_id if first_row else "",
                 "sentence": sentence if first_row else "",
@@ -260,7 +283,6 @@ def main() -> None:
                 "subject_similarity": round(pair["subject_similarity"], 4),
                 "relation_similarity": round(pair["relation_similarity"], 4),
                 "object_similarity": round(pair["object_similarity"], 4),
-                "pairing_similarity": round(pair["pairing_similarity"], 4),
             })
 
             first_row = False
@@ -268,7 +290,25 @@ def main() -> None:
     df = pd.DataFrame(rows)
     df.to_excel(OUTPUT_FILE, index=False)
 
+    precision, recall, f1 = compute_metrics(
+        total_a,
+        total_b,
+        total_matches
+    )
+
     print(f"Saved Excel file: {OUTPUT_FILE}")
+
+    print("\n=== MODEL GPT 4o mini vs MODEL LLaMa3 ===")
+    print(f"entity_threshold:   {ENTITY_THRESHOLD}")
+    print(f"final_score_threshold: {FINAL_SCORE_THRESHOLD}")
+
+    print(f"total_triples_a:    {total_a}")
+    print(f"total_triples_b:    {total_b}")
+    print(f"total_matches:      {total_matches}")
+
+    print(f"precision:          {precision:.4f}")
+    print(f"recall:             {recall:.4f}")
+    print(f"f1:                 {f1:.4f}")
 
 
 if __name__ == "__main__":
