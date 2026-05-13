@@ -22,7 +22,6 @@ SENTENCES_FILE = "sentences.txt"
 
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
 
-ENTITY_THRESHOLD = 0.35
 FINAL_SCORE_THRESHOLD = 0.45
 
 
@@ -102,10 +101,19 @@ def entity_score(a: str, b: str) -> float:
     return round(0.4 * ts + 0.4 * r + 0.2 * pr, 4)
 
 
+def harmonic_score(src_score: float, tgt_score: float) -> float:
+    if src_score + tgt_score == 0:
+        return 0.0
+
+    return round(
+        2 * (src_score * tgt_score) / (src_score + tgt_score),
+        4
+    )
+
+
 def match_score(
     triple1: Triple,
     triple2: Triple,
-    entity_threshold: float = ENTITY_THRESHOLD,
 ):
     src1, rel1, tgt1 = triple1
     src2, rel2, tgt2 = triple2
@@ -123,13 +131,10 @@ def match_score(
 
     src_score = entity_score(src1, src2)
     tgt_score = entity_score(tgt1, tgt2)
-    final_score = round((src_score + tgt_score) / 2, 4)
 
-    is_match = (
-        src_score >= entity_threshold
-        and tgt_score >= entity_threshold
-        and final_score >= FINAL_SCORE_THRESHOLD
-    )
+    final_score = harmonic_score(src_score, tgt_score)
+
+    is_match = final_score >= FINAL_SCORE_THRESHOLD
 
     return {
         "is_match": is_match,
@@ -299,7 +304,6 @@ def main() -> None:
     print(f"Saved Excel file: {OUTPUT_FILE}")
 
     print("\n=== MODEL GPT 4o mini vs MODEL LLaMa3 ===")
-    print(f"entity_threshold:   {ENTITY_THRESHOLD}")
     print(f"final_score_threshold: {FINAL_SCORE_THRESHOLD}")
 
     print(f"total_triples_a:    {total_a}")
