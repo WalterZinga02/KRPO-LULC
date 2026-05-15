@@ -16,13 +16,13 @@ Triple = Tuple[str, str, str]
 # CONFIG
 # =========================
 
-FILE_A = "GPT4omini_sample_results.txt"
-FILE_B = "LLaMa3_sample_results.txt"
-SENTENCES_FILE = "sentences.txt"
+FILE_A = "GPT4partial.txt"
+FILE_B = "LLaMa3partial.txt"
+SENTENCES_FILE = "datasetpartial.txt"
 
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
 
-FINAL_SCORE_THRESHOLD = 0.45
+FINAL_SCORE_THRESHOLD = 0.55
 
 
 # =========================
@@ -259,6 +259,7 @@ def main() -> None:
     total_a = 0
     total_b = 0
     total_matches = 0
+    total_pairs = 0
 
     for sentence_id, (sentence, triples_a, triples_b) in enumerate(
         zip(sentences, data_a, data_b),
@@ -268,6 +269,7 @@ def main() -> None:
         total_b += len(triples_b)
 
         pairs = get_hungarian_pairs(triples_a, triples_b)
+        total_pairs += len(pairs)
 
         if not pairs:
             continue
@@ -301,19 +303,27 @@ def main() -> None:
         total_matches
     )
 
+    pairwise_overlap = (
+        total_matches / total_pairs
+        if total_pairs > 0
+        else 0.0
+    )
+
     print(f"Saved Excel file: {OUTPUT_FILE}")
 
     print("\n=== MODEL GPT 4o mini vs MODEL LLaMa3 ===")
-    print(f"final_score_threshold: {FINAL_SCORE_THRESHOLD}")
+    print(f"Threshold: {FINAL_SCORE_THRESHOLD}")
 
-    print(f"total_triples_a:    {total_a}")
-    print(f"total_triples_b:    {total_b}")
-    print(f"total_matches:      {total_matches}")
+    print(f"Total triples a:    {total_a}")
+    print(f"Total triples b:    {total_b}")
 
-    print(f"precision:          {precision:.4f}")
-    print(f"recall:             {recall:.4f}")
-    print(f"f1:                 {f1:.4f}")
+    print(f"Overlap on A:          {precision:.4f}")
+    print(f"Overlap on B:             {recall:.4f}")
+    #print(f"F1:                 {f1:.4f}")
 
+    print(f"Total pairs:        {total_pairs}")
+    print(f"Pairwise overlap:            {pairwise_overlap:.4f}")
 
+    print(f"Total matches:      {total_matches}")
 if __name__ == "__main__":
     main()
