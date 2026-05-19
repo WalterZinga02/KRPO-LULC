@@ -16,9 +16,9 @@ Triple = Tuple[str, str, str]
 # CONFIG
 # =========================
 
-FILE_A = "GPT4partial.txt"
-FILE_B = "LLaMa3partial.txt"
-SENTENCES_FILE = "datasetpartial.txt"
+FILE_A = "GPT55results.txt"
+FILE_B = "LLaMa3results.txt"
+SENTENCES_FILE = "lulc_sample.txt"
 
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
 
@@ -309,20 +309,20 @@ def main() -> None:
         else 0.0
     )
 
-    print(f"Saved Excel file: {OUTPUT_FILE}")
+    print(f"\nSaved Excel file: {OUTPUT_FILE}")
 
-    print("\n=== MODEL GPT 4o mini vs MODEL LLaMa3 ===")
-    print(f"Threshold: {FINAL_SCORE_THRESHOLD}")
+    print("\n=== MODEL GPT 4o mini (Model A) vs MODEL LLaMa3 (Model B)===")
+    print(f"Threshold:          {FINAL_SCORE_THRESHOLD}")
 
-    print(f"Total triples a:    {total_a}")
-    print(f"Total triples b:    {total_b}")
+    print(f"Total triples A:    {total_a}")
+    print(f"Total triples B:    {total_b}")
 
-    print(f"Overlap on A:          {precision:.4f}")
-    print(f"Overlap on B:             {recall:.4f}")
+    print(f"Overlap on A:       {precision:.4f}")
+    print(f"Overlap on B:       {recall:.4f}")
     #print(f"F1:                 {f1:.4f}")
 
-    print(f"Total pairs:        {total_pairs}")
-    print(f"Pairwise overlap:            {pairwise_overlap:.4f}")
+    #print(f"Total pairs:        {total_pairs}")
+    #print(f"Pairwise overlap:   {pairwise_overlap:.4f}")
 
     print(f"Total matches:      {total_matches}")
 if __name__ == "__main__":
