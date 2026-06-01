@@ -3,16 +3,16 @@ import ast
 import pandas as pd
 
 
-SENTENCES_FILE = "sentences.txt"
+SENTENCES_FILE = "dataset300.txt"
 
 TRIPLETS_FILES = [
     "GPT4ominiresults.txt",
     "LLaMa3results.txt",
-    "GPT5miniresults.txt",
     "GPT55results.txt",
+    "DeepSeekR1results.txt"
 ]
 
-OUTPUT_FILE = "triplets_expanded.xlsx"
+OUTPUT_FILE = "annotation.xlsx"
 
 
 if not 1 <= len(TRIPLETS_FILES) <= 4:
