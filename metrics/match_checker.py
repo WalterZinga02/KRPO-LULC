@@ -17,8 +17,8 @@ Triple = Tuple[str, str, str]
 # =========================
 
 FILE_A = "GPT55results.txt"
-FILE_B = "LLaMa3results.txt"
-SENTENCES_FILE = "lulc_sample.txt"
+FILE_B = "DeepSeekR1results.txt"
+SENTENCES_FILE = "dataset300.txt"
 
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
 
@@ -311,7 +311,6 @@ def main() -> None:
 
     print(f"\nSaved Excel file: {OUTPUT_FILE}")
 
-    print("\n=== MODEL GPT 4o mini (Model A) vs MODEL LLaMa3 (Model B)===")
     print(f"Threshold:          {FINAL_SCORE_THRESHOLD}")
 
     print(f"Total triples A:    {total_a}")

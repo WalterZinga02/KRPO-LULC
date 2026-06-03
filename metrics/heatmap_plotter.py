@@ -3,43 +3,29 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-# =========================================
-# MODELS
-# =========================================
-
 models = [
     "GPT4o-mini",
     "GPT5.5",
-    "GPT5-mini",
+    "DeepSeekR1",
     "LLaMa3"
 ]
 
 
-# =========================================
-# OVERLAP MATRIX
-# Rows = source model
-# Columns = target model
-# =========================================
-
 matrix = [
 
     # GPT4o-mini ->
-    [1.0000, 0.5096, 0.2682, 0.3985],
+    [1.0000, 0.5370, 0.3287, 0.2269],
 
     # GPT5.5 ->
-    [0.3093, 1.0000, 0.3081, 0.3349],
+    [0.2739, 1.0000, 0.2869, 0.1747],
 
-    # GPT5-mini ->
-    [0.3211, 0.6078, 1.0000, 0.3509],
+    # DeepSeek R1 ->
+    [0.4595, 0.7864, 1.0000, 0.2816],
 
     # LLaMa3 ->
-    [0.3200, 0.4431, 0.2354, 1.0000],
+    [0.2579, 0.3895, 0.2289, 1.0000],
 ]
 
-
-# =========================================
-# DATAFRAME
-# =========================================
 
 df = pd.DataFrame(
     matrix,
@@ -47,10 +33,6 @@ df = pd.DataFrame(
     columns=models
 )
 
-
-# =========================================
-# HEATMAP
-# =========================================
 
 plt.figure(figsize=(9, 7))
 
@@ -66,10 +48,81 @@ sns.heatmap(
     cbar_kws={"label": "Semantic Overlap"}
 )
 
-#plt.title("Semantic Overlap Between Models")
 plt.xlabel("Target Model")
 plt.ylabel("Source Model")
 
-plt.tight_layout()
+plt.figtext(
+    0.5,
+    0.01,
+    "Each cell represents the percentage of triples from the row model that match triples from the column model.",
+    ha="center",
+    fontsize=10
+)
+
+plt.tight_layout(rect=[0, 0.04, 1, 1])
+plt.show()
+
+
+# =========================================
+# JACCARD MATRIX
+# =========================================
+
+jaccard_matrix = [
+
+    # GPT4o-mini
+    [1.0000, 0.2216, 0.2379, 0.1370],
+
+    # GPT5.5
+    [0.2216, 1.0000, 0.2662, 0.1375],
+
+    # DeepSeekR1
+    [0.2379, 0.2662, 1.0000, 0.1445],
+
+    # LLaMa3
+    [0.1370, 0.1375, 0.1445, 1.0000],
+]
+
+
+# =========================================
+# DATAFRAME
+# =========================================
+
+jaccard_df = pd.DataFrame(
+    jaccard_matrix,
+    index=models,
+    columns=models
+)
+
+
+# =========================================
+# JACCARD HEATMAP
+# =========================================
+
+plt.figure(figsize=(9, 7))
+
+sns.heatmap(
+    jaccard_df,
+    annot=True,
+    cmap="Greens",
+    vmin=0,
+    vmax=1,
+    linewidths=0.5,
+    square=True,
+    fmt=".2f",
+    cbar_kws={"label": "Jaccard Similarity"}
+)
+
+plt.xlabel("Model")
+plt.ylabel("Model")
+
+plt.figtext(
+    0.5,
+    0.01,
+    "Jaccard similarity = shared triples / total unique triples between two models.",
+    ha="center",
+    fontsize=10
+)
+
+plt.tight_layout(rect=[0, 0.04, 1, 1])
 
 plt.show()
