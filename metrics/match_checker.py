@@ -16,8 +16,8 @@ Triple = Tuple[str, str, str]
 # CONFIG
 # =========================
 
-FILE_A = "GPT55results.txt"
-FILE_B = "DeepSeekR1results.txt"
+FILE_A = "GPT4ominiresults.txt"
+FILE_B = "LLaMa3results.txt"
 SENTENCES_FILE = "dataset300.txt"
 
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
@@ -111,10 +111,7 @@ def harmonic_score(src_score: float, tgt_score: float) -> float:
     )
 
 
-def match_score(
-    triple1: Triple,
-    triple2: Triple,
-):
+def match_score(triple1: Triple, triple2: Triple):
     src1, rel1, tgt1 = triple1
     src2, rel2, tgt2 = triple2
 
@@ -192,11 +189,7 @@ def get_hungarian_pairs(triples_a: List[Triple], triples_b: List[Triple]):
 
     for i, triple_a in enumerate(triples_a):
         for j, triple_b in enumerate(triples_b):
-
-            # Used only internally by Hungarian
             similarity_matrix[i, j] = pairing_similarity(triple_a, triple_b)
-
-            # Used for final MATCH / NOT_MATCH decision
             pair_scores[(i, j)] = match_score(triple_a, triple_b)
 
     cost_matrix = 1 - similarity_matrix
@@ -261,6 +254,9 @@ def main() -> None:
     total_matches = 0
     total_pairs = 0
 
+    local_jaccard_scores = []
+    empty_empty_sentences = 0
+
     for sentence_id, (sentence, triples_a, triples_b) in enumerate(
         zip(sentences, data_a, data_b),
         start=1
@@ -270,6 +266,27 @@ def main() -> None:
 
         pairs = get_hungarian_pairs(triples_a, triples_b)
         total_pairs += len(pairs)
+
+        # =========================
+        # LOCAL JACCARD PER SENTENCE
+        # =========================
+
+        sentence_matches = sum(
+            1 for pair in pairs
+            if pair["status"] == "MATCH"
+        )
+
+        sentence_union = len(triples_a) + len(triples_b) - sentence_matches
+
+        if sentence_union > 0:
+            sentence_jaccard = sentence_matches / sentence_union
+        else:
+            # Both models extracted zero triples:
+            # agreement on a noisy/non-informative sentence
+            sentence_jaccard = 1.0
+            empty_empty_sentences += 1
+
+        local_jaccard_scores.append(sentence_jaccard)
 
         if not pairs:
             continue
@@ -303,9 +320,9 @@ def main() -> None:
         total_matches
     )
 
-    pairwise_overlap = (
-        total_matches / total_pairs
-        if total_pairs > 0
+    mean_local_jaccard = (
+        sum(local_jaccard_scores) / len(local_jaccard_scores)
+        if local_jaccard_scores
         else 0.0
     )
 
@@ -318,11 +335,11 @@ def main() -> None:
 
     print(f"Overlap on A:       {precision:.4f}")
     print(f"Overlap on B:       {recall:.4f}")
-    #print(f"F1:                 {f1:.4f}")
-
-    #print(f"Total pairs:        {total_pairs}")
-    #print(f"Pairwise overlap:   {pairwise_overlap:.4f}")
 
     print(f"Total matches:      {total_matches}")
+
+    print(f"Mean local Jaccard: {mean_local_jaccard:.4f}")
+
+
 if __name__ == "__main__":
     main()

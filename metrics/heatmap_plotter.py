@@ -65,22 +65,24 @@ plt.show()
 
 # =========================================
 # JACCARD MATRIX
+# Mean Local Jaccard
 # =========================================
 
 jaccard_matrix = [
 
     # GPT4o-mini
-    [1.0000, 0.2216, 0.2371, 0.1373],
+    [1.0000, 0.3149, 0.6032, 0.5167],
 
     # GPT5.5
-    [0.2216, 1.0000, 0.2662, 0.1372],
+    [0.3149, 1.0000, 0.3829, 0.2638],
 
     # DeepSeekR1
-    [0.2371, 0.2662, 1.0000, 0.1445],
+    [0.6032, 0.3829, 1.0000, 0.4983],
 
     # LLaMa3
-    [0.1373, 0.1372, 0.1445, 1.0000],
+    [0.5167, 0.2638, 0.4983, 1.0000],
 ]
+
 
 # =========================================
 # DATAFRAME
@@ -108,7 +110,7 @@ sns.heatmap(
     linewidths=0.5,
     square=True,
     fmt=".2f",
-    cbar_kws={"label": "Jaccard Similarity"}
+    cbar_kws={"label": "Mean Local Jaccard"}
 )
 
 plt.xlabel("Model")
@@ -117,7 +119,7 @@ plt.ylabel("Model")
 plt.figtext(
     0.5,
     0.01,
-    "Jaccard similarity = shared triples / total unique triples between two models.",
+    "Each cell represents the average sentence-level Jaccard similarity between two models.",
     ha="center",
     fontsize=10
 )
