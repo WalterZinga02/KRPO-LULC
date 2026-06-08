@@ -16,7 +16,7 @@ from post_processing import TripletPostProcessor
 # CONFIG
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-DATASET_NAME = "lulc_sample"
+DATASET_NAME = "lulc_dataset"
 
 DATASET_PATH = f"datasets/{DATASET_NAME}.txt"
 OUTPUT_DIR = f"outputs/{DATASET_NAME}"

@@ -5,3 +5,5 @@ OCCURS_DURING,indicates that the subject occurs during a temporal period
 INCREASES,"indicates that the subject increases, either qualitatively, temporally, or quantitatively"
 DECREASES,"indicates that the subject decreases, either qualitatively, temporally, or quantitatively"
 DOMINATES,"indicates that a land use, land cover, or surface element is the predominant or most extensive one in a given spatial or thematic context"
+AFFECTS,Indicates an influence that may not be strictly causal but is significant
+ASSOCIATED_WITH,Indicates a correlation or connection without implying causation

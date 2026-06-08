@@ -12,8 +12,7 @@ Triplets: [['farmland','INCREASES','each year'], ['forest woodland','DECREASES',
 
 Example 4:
 Text: During that same time period 52 million hectares were regained due to reforestation efforts and natural regrowth.
-Triplets: [['forest','INCREASES','by 52 million hectares'], ['increase in forest','OCCURS_DURING','that same time period'], ['reforestation efforts','CAUSES','forest increase'],
-['natural regrowth','CAUSES','forest increase']]
+Triplets: [['forest','INCREASES','by 52 million hectares'], ['increase in forest','OCCURS_DURING','that same time period'], ['reforestation efforts','CAUSES','forest increase'],['natural regrowth','CAUSES','forest increase']]
 
 Example 5:
 Text: The majority of other cash crops was converted to food crop fallow areas (1067.98 km²)
@@ -21,7 +20,7 @@ Triplets: [['cash crops','CONVERTED_TO','food crop fallow'], ['cash crops','DECR
 
 Example 6:
 Text: In a small Sahelian catchment in Niger, the increase in cultivated land from 1950 to 1998 was associated with an increase in the extent of eroded land (from 7 to 16%) at the expense of the savanna
-Triplets: [['cultivated land','INCREASES','from 1950 to 1998'], ['eroded land','INCREASES','from 7% to 16%'], ['savanna','DECREASES','from 1950 to 1998'], ['cultivated land','CAUSES','eroded land increase'], ['cultivated land','CAUSES','savanna decrease'], ['cultivated land','LOCATED_IN','Sahelian catchment in Niger'], ['eroded land','LOCATED_IN','Sahelian catchment in Niger'], ['savanna','LOCATED_IN','Sahelian catchment in Niger']]
+Triplets: [['cultivated land','INCREASES','from 1950 to 1998'], ['eroded land','INCREASES','from 7% to 16%'], ['savanna','DECREASES','from 1950 to 1998'], ['cultivated land','ASSOCIATED_WITH','eroded land increase'], ['cultivated land','CAUSES','savanna decrease'], ['cultivated land','LOCATED_IN','Sahelian catchment in Niger'], ['eroded land','LOCATED_IN','Sahelian catchment in Niger'], ['savanna','LOCATED_IN','Sahelian catchment in Niger']]
 
 Example 7:
 Text: Tree savannas, bare soils and agricultural lands increased by 17.55%, 18.79% and 78.79%, respectively, while woodland, gallery forest, shrub savannas and water bodies decreased by 22.02%, 5.03%, 40.08% and 31.2%, respectively.
