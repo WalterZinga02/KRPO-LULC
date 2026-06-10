@@ -16,9 +16,9 @@ Triple = Tuple[str, str, str]
 # CONFIG
 # =========================
 
-FILE_A = "GPT4ominiresults.txt"
-FILE_B = "LLaMa3results.txt"
-SENTENCES_FILE = "dataset300.txt"
+FILE_A = "valid_GPT55.txt"
+FILE_B = "valid_DeepSeekR1.txt"
+SENTENCES_FILE = "valid_dataset.txt"
 
 OUTPUT_FILE = "triple_matching_analysis.xlsx"
 

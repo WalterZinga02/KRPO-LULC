@@ -1,4 +1,5 @@
 import ast
+import json
 import pandas as pd
 from pathlib import Path
 
@@ -42,7 +43,7 @@ MODELS = [
 
 
 # =========================
-# UTILS
+# FUNCTIONS
 # =========================
 
 def normalize_status(value):
@@ -52,12 +53,6 @@ def normalize_status(value):
 
 
 def parse_triple(value):
-    """
-    Converte una cella Excel in una tripla Python.
-    Accetta formati tipo:
-    ['a', 'REL', 'b']
-    oppure testo semplice.
-    """
     if pd.isna(value):
         return None
 
@@ -76,7 +71,7 @@ def parse_triple(value):
             return list(parsed)
 
     except Exception:
-        pass
+        return None
 
     return None
 
@@ -97,7 +92,7 @@ df[ID_COL] = df[ID_COL].astype(int)
 
 
 # =========================
-# TXT VALID TRIPLES PER MODEL
+# CREATE TXT FILES
 # =========================
 
 for model in MODELS:
@@ -111,16 +106,15 @@ for model in MODELS:
         valid_triples = []
 
         for _, row in group.iterrows():
-            status = normalize_status(row[status_col])
             triple = parse_triple(row[triple_col])
+            status = normalize_status(row[status_col])
 
-            if status == "VALID" and triple is not None:
+            if triple is not None and status == "VALID":
                 valid_triples.append(triple)
 
-        lines.append(str(valid_triples))
+        lines.append(json.dumps(valid_triples, ensure_ascii=False))
 
     Path(txt_file).write_text("\n".join(lines), encoding="utf-8")
-
     print(f"Creato: {txt_file}")
 
 
@@ -146,7 +140,10 @@ for sentence_id, group in df.groupby(ID_COL, sort=False):
         valid_count = 0
 
         for _, r in group.iterrows():
-            if normalize_status(r[status_col]) == "VALID" and is_real_triple(r[triple_col]):
+            triple = parse_triple(r[triple_col])
+            status = normalize_status(r[status_col])
+
+            if triple is not None and status == "VALID":
                 valid_count += 1
 
         row[f"{model_name}_valid_count"] = valid_count
@@ -180,11 +177,12 @@ for sentence_id, group in df.groupby(ID_COL, sort=False):
 
         for _, r in group.iterrows():
             triple = parse_triple(r[triple_col])
+            status = normalize_status(r[status_col])
 
             if triple is not None:
                 total_triples += 1
 
-                if normalize_status(r[status_col]) == "VALID":
+                if status == "VALID":
                     valid_triples += 1
 
         if total_triples == 0:
