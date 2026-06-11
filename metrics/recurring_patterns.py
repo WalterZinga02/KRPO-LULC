@@ -30,13 +30,13 @@ EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 FUZZY_EDGE_THRESHOLD = 0.70
 FUZZY_REPRESENTATIVE_THRESHOLD = 0.80
 
-EMBEDDING_EDGE_THRESHOLD = 0.72
-EMBEDDING_REPRESENTATIVE_THRESHOLD = 0.78
+EMBEDDING_EDGE_THRESHOLD = 0.70
+EMBEDDING_REPRESENTATIVE_THRESHOLD = 0.75
 
-MIN_SUBJECT_SCORE = 0.80
-MIN_OBJECT_SCORE = 0.80
+MIN_SUBJECT_SCORE = 0.75 #0.8 for fuzzy, 0.75 for embedding
+MIN_OBJECT_SCORE = 0.75 #0.8 for fuzzy, 0.75 for embedding
 
-MIN_PATTERN_FREQUENCY = 3
+MIN_PATTERN_FREQUENCY = 4
 MIN_DISTINCT_SENTENCES = 2
 
 
@@ -45,13 +45,19 @@ MIN_DISTINCT_SENTENCES = 2
 # =========================
 
 def normalize_text(text: str) -> str:
+    """
+    Operations:
+    - lowercase conversion
+    - whitespace normalization
+    - removal of punctuation symbols
+    """
     text = text.lower().strip()
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"[^\w\s%.-]", "", text)
     return text
 
 
-def relation_group_key(rel: str) -> str:
+def relation_group_key(rel: str) -> str:    # Grouping relations by their normalized form, with special handling for "CAUSES" and "AFFECTS"
     r = normalize_text(rel).upper()
 
     if r in {"CAUSES", "AFFECTS"}:
@@ -84,8 +90,15 @@ def entity_score(a: str, b: str) -> float:
 
     return round(0.4 * ts + 0.4 * r + 0.2 * pr, 4)
 
-
 def harmonic_score(src_score: float, tgt_score: float) -> float:
+
+    """
+        Combines subject and object similarity using
+        the harmonic mean.
+
+        Used for both fuzzy and embedding similarity modes
+    """
+
     if src_score + tgt_score == 0:
         return 0.0
 
@@ -128,6 +141,22 @@ def embedding_pair_score(
     subject_embeddings: np.ndarray,
     object_embeddings: np.ndarray
 ) -> Dict[str, float]:
+    """
+    Semantic similarity module (M2).
+
+    Embeddings are generated using the
+    Sentence-Transformers model: all-MiniLM-L6-v2
+
+    For each triple we compute:
+    - cosine similarity between subject embeddings
+    - cosine similarity between object embeddings
+
+    The final triple similarity is obtained using
+    the harmonic mean of the two cosine similarities.
+
+    The clustering pipeline remains identical to the fuzzy baseline;
+    only the similarity computation module changes.
+    """
     src_score = cosine_from_normalized(
         subject_embeddings[i],
         subject_embeddings[j]
@@ -226,6 +255,19 @@ def get_cached_score(
     j: int,
     score_cache: Dict[Tuple[int, int], Dict[str, Any]]
 ) -> Dict[str, Any]:
+    
+    """
+    Retrieves a previously computed similarity score.
+
+    Pairwise similarities are computed only once and
+    stored in a cache in order to avoid redundant
+    comparisons during:
+    - representative selection
+    - cluster refinement
+
+    This considerably reduces computational cost.
+    """
+
     if i == j:
         return {
             "is_match": True,
@@ -251,6 +293,19 @@ def choose_representative_item(
     cluster_items: List[Dict[str, Any]],
     score_cache: Dict[Tuple[int, int], Dict[str, Any]]
 ) -> Dict[str, Any]:
+    
+    """
+    Selects the cluster representative.
+
+    For every triple in the cluster, the average
+    similarity to all other cluster members is computed.
+
+    The triple with the highest average similarity
+    is selected as the representative because it
+    best captures the central semantic meaning
+    of the cluster.
+    """
+
     best_item = None
     best_avg_score = -1.0
 
@@ -285,7 +340,7 @@ def compute_pair_score(
     subject_embeddings: np.ndarray | None,
     object_embeddings: np.ndarray | None,
     edge_threshold: float
-) -> Dict[str, Any]:
+) -> Dict[str, Any]:        # Computes similarity between two triples.
     triple1 = all_items[i]["triple"]
     triple2 = all_items[j]["triple"]
 
@@ -404,6 +459,7 @@ def main() -> None:
     print("Computing pairwise similarities by relation group...")
 
     uf = UnionFind(n)
+
     score_cache = {}
 
     relation_groups = {}
