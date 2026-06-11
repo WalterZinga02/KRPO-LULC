@@ -3,8 +3,10 @@ import re
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
+import numpy as np
 import pandas as pd
 from rapidfuzz import fuzz
+from sentence_transformers import SentenceTransformer
 
 
 Triple = Tuple[str, str, str]
@@ -17,12 +19,19 @@ Triple = Tuple[str, str, str]
 TRIPLES_FILE = "GPT4ominiFullCorpus.txt"
 SENTENCES_FILE = "Lulc_dataset.txt"
 
-OUTPUT_FILE = "recurring_triple_patterns.xlsx"
-
 MODEL_NAME = "GPT4o-mini"
 
-FINAL_SCORE_THRESHOLD = 0.70
-REPRESENTATIVE_SCORE_THRESHOLD = 0.80
+SIMILARITY_MODE = "embedding"  # "fuzzy" or "embedding"
+
+OUTPUT_FILE = f"recurring_triple_patterns_{SIMILARITY_MODE}.xlsx"
+
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+
+FUZZY_EDGE_THRESHOLD = 0.70
+FUZZY_REPRESENTATIVE_THRESHOLD = 0.80
+
+EMBEDDING_EDGE_THRESHOLD = 0.72
+EMBEDDING_REPRESENTATIVE_THRESHOLD = 0.78
 
 MIN_SUBJECT_SCORE = 0.80
 MIN_OBJECT_SCORE = 0.80
@@ -56,7 +65,7 @@ def relations_match(rel1: str, rel2: str) -> bool:
 
 
 # =========================
-# MATCHING SCORE
+# FUZZY SCORE
 # =========================
 
 def entity_score(a: str, b: str) -> float:
@@ -86,30 +95,55 @@ def harmonic_score(src_score: float, tgt_score: float) -> float:
     )
 
 
-def match_score(triple1: Triple, triple2: Triple) -> Dict[str, Any]:
-    src1, rel1, tgt1 = triple1
-    src2, rel2, tgt2 = triple2
-
-    if not relations_match(rel1, rel2):
-        return {
-            "is_match": False,
-            "score": 0.0,
-        }
+def fuzzy_pair_score(triple1: Triple, triple2: Triple) -> Dict[str, float]:
+    src1, _rel1, tgt1 = triple1
+    src2, _rel2, tgt2 = triple2
 
     src_score = entity_score(src1, src2)
     tgt_score = entity_score(tgt1, tgt2)
+    final_score = harmonic_score(src_score, tgt_score)
+
+    return {
+        "score": final_score,
+        "src_score": src_score,
+        "tgt_score": tgt_score,
+    }
+
+
+# =========================
+# EMBEDDING SCORE
+# =========================
+
+def build_embedding_text(text: str) -> str:
+    return normalize_text(text)
+
+
+def cosine_from_normalized(v1: np.ndarray, v2: np.ndarray) -> float:
+    return float(np.dot(v1, v2))
+
+
+def embedding_pair_score(
+    i: int,
+    j: int,
+    subject_embeddings: np.ndarray,
+    object_embeddings: np.ndarray
+) -> Dict[str, float]:
+    src_score = cosine_from_normalized(
+        subject_embeddings[i],
+        subject_embeddings[j]
+    )
+
+    tgt_score = cosine_from_normalized(
+        object_embeddings[i],
+        object_embeddings[j]
+    )
 
     final_score = harmonic_score(src_score, tgt_score)
 
-    is_match = (
-        final_score >= FINAL_SCORE_THRESHOLD
-        and src_score >= MIN_SUBJECT_SCORE
-        and tgt_score >= MIN_OBJECT_SCORE
-    )
-
     return {
-        "is_match": is_match,
-        "score": final_score,
+        "score": round(final_score, 4),
+        "src_score": round(src_score, 4),
+        "tgt_score": round(tgt_score, 4),
     }
 
 
@@ -177,6 +211,16 @@ def triple_to_string(triple: Triple) -> str:
     return f"{triple[0]} --{triple[1]}-- {triple[2]}"
 
 
+def get_thresholds() -> Tuple[float, float]:
+    if SIMILARITY_MODE == "fuzzy":
+        return FUZZY_EDGE_THRESHOLD, FUZZY_REPRESENTATIVE_THRESHOLD
+
+    if SIMILARITY_MODE == "embedding":
+        return EMBEDDING_EDGE_THRESHOLD, EMBEDDING_REPRESENTATIVE_THRESHOLD
+
+    raise ValueError("SIMILARITY_MODE must be either 'fuzzy' or 'embedding'")
+
+
 def get_cached_score(
     i: int,
     j: int,
@@ -186,6 +230,8 @@ def get_cached_score(
         return {
             "is_match": True,
             "score": 1.0,
+            "src_score": 1.0,
+            "tgt_score": 1.0,
         }
 
     key = (min(i, j), max(i, j))
@@ -195,6 +241,8 @@ def get_cached_score(
         {
             "is_match": False,
             "score": 0.0,
+            "src_score": 0.0,
+            "tgt_score": 0.0,
         }
     )
 
@@ -230,11 +278,64 @@ def choose_representative_item(
     return best_item
 
 
+def compute_pair_score(
+    i: int,
+    j: int,
+    all_items: List[Dict[str, Any]],
+    subject_embeddings: np.ndarray | None,
+    object_embeddings: np.ndarray | None,
+    edge_threshold: float
+) -> Dict[str, Any]:
+    triple1 = all_items[i]["triple"]
+    triple2 = all_items[j]["triple"]
+
+    if not relations_match(triple1[1], triple2[1]):
+        return {
+            "is_match": False,
+            "score": 0.0,
+            "src_score": 0.0,
+            "tgt_score": 0.0,
+        }
+
+    if SIMILARITY_MODE == "fuzzy":
+        result = fuzzy_pair_score(triple1, triple2)
+
+    elif SIMILARITY_MODE == "embedding":
+        result = embedding_pair_score(
+            i,
+            j,
+            subject_embeddings,
+            object_embeddings
+        )
+
+    else:
+        raise ValueError("Invalid SIMILARITY_MODE")
+
+    score = result["score"]
+    src_score = result["src_score"]
+    tgt_score = result["tgt_score"]
+
+    is_match = (
+        score >= edge_threshold
+        and src_score >= MIN_SUBJECT_SCORE
+        and tgt_score >= MIN_OBJECT_SCORE
+    )
+
+    return {
+        "is_match": is_match,
+        "score": round(score, 4),
+        "src_score": round(src_score, 4),
+        "tgt_score": round(tgt_score, 4),
+    }
+
+
 # =========================
 # MAIN
 # =========================
 
 def main() -> None:
+    edge_threshold, representative_threshold = get_thresholds()
+
     triples_by_sentence = read_triples_file(TRIPLES_FILE)
     sentences = read_sentences_file(SENTENCES_FILE)
 
@@ -267,7 +368,39 @@ def main() -> None:
         print("No triples found.")
         return
 
+    subject_embeddings = None
+    object_embeddings = None
+
+    if SIMILARITY_MODE == "embedding":
+        print(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
+        model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+
+        subject_texts = [
+            build_embedding_text(item["triple"][0])
+            for item in all_items
+        ]
+
+        object_texts = [
+            build_embedding_text(item["triple"][2])
+            for item in all_items
+        ]
+
+        print("Encoding subjects...")
+        subject_embeddings = model.encode(
+            subject_texts,
+            normalize_embeddings=True,
+            show_progress_bar=True
+        )
+
+        print("Encoding objects...")
+        object_embeddings = model.encode(
+            object_texts,
+            normalize_embeddings=True,
+            show_progress_bar=True
+        )
+
     print(f"Loaded triples: {n}")
+    print(f"Similarity mode: {SIMILARITY_MODE}")
     print("Computing pairwise similarities by relation group...")
 
     uf = UnionFind(n)
@@ -294,9 +427,13 @@ def main() -> None:
             for pos_j in range(pos_i + 1, len(ids)):
                 j = ids[pos_j]
 
-                result = match_score(
-                    all_items[i]["triple"],
-                    all_items[j]["triple"]
+                result = compute_pair_score(
+                    i=i,
+                    j=j,
+                    all_items=all_items,
+                    subject_embeddings=subject_embeddings,
+                    object_embeddings=object_embeddings,
+                    edge_threshold=edge_threshold
                 )
 
                 score_cache[(min(i, j), max(i, j))] = result
@@ -341,13 +478,15 @@ def main() -> None:
         clean_cluster_items = []
 
         for item in cluster:
-            similarity_to_representative = get_cached_score(
+            result = get_cached_score(
                 representative_id,
                 item["global_id"],
                 score_cache
-            )["score"]
+            )
 
-            if similarity_to_representative >= REPRESENTATIVE_SCORE_THRESHOLD:
+            similarity_to_representative = result["score"]
+
+            if similarity_to_representative >= representative_threshold:
                 clean_cluster_items.append((item, similarity_to_representative))
 
         distinct_sentence_count = len({
@@ -395,8 +534,11 @@ def main() -> None:
         )
 
     print(f"\nSaved Excel file: {OUTPUT_FILE}")
-    print(f"Edge threshold: {FINAL_SCORE_THRESHOLD}")
-    print(f"Representative threshold: {REPRESENTATIVE_SCORE_THRESHOLD}")
+    print(f"Similarity mode: {SIMILARITY_MODE}")
+    print(f"Edge threshold: {edge_threshold}")
+    print(f"Representative threshold: {representative_threshold}")
+    print(f"Minimum subject score: {MIN_SUBJECT_SCORE}")
+    print(f"Minimum object score: {MIN_OBJECT_SCORE}")
     print(f"Minimum pattern frequency: {MIN_PATTERN_FREQUENCY}")
     print(f"Minimum distinct sentences: {MIN_DISTINCT_SENTENCES}")
     print(f"Total triples: {n}")
