@@ -20,3 +20,4 @@ metrics/*xlsx
 tools/*.txt
 tools/*xlsx
 tools/*.jsonl
+**/plots/
