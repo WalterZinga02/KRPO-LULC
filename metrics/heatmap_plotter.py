@@ -44,6 +44,7 @@ sns.heatmap(
     linewidths=0.5,
     square=True,
     fmt=".2f",
+    annot_kws={"fontsize": 16}, 
     cbar_kws={"label": "Semantic Overlap"}
 )
 
@@ -108,6 +109,7 @@ sns.heatmap(
     linewidths=0.5,
     square=True,
     fmt=".2f",
+    annot_kws={"fontsize": 16}, 
     cbar_kws={"label": "Mean Local Jaccard"}
 )
 

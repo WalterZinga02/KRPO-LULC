@@ -16,7 +16,7 @@ Triple = Tuple[str, str, str]
 # CONFIG
 # =========================
 
-TRIPLES_FILE = "GPT4ominiFullCorpus.txt"
+TRIPLES_FILE = "LLaMa3FullCorpus.txt"
 SENTENCES_FILE = "Lulc_dataset.txt"
 
 MODEL_NAME = "GPT4o-mini"
