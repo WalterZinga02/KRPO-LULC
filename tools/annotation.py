@@ -10,10 +10,9 @@ OUTPUT_DIR = BASE_DIR / "output"
 SENTENCES_FILE = INPUT_DIR / "dataset300.txt"
 
 TRIPLETS_FILES = [
-    INPUT_DIR / "GPT4ominiresults.txt",
-    INPUT_DIR / "LLaMa3results.txt",
-    INPUT_DIR / "GPT55results.txt",
-    INPUT_DIR / "DeepSeekR1results.txt"
+    INPUT_DIR / "Gemini25flashresults.txt",
+    INPUT_DIR / "Gemma3results.txt",
+    INPUT_DIR / "Qwen3results.txt",
 ]
 
 OUTPUT_FILE = OUTPUT_DIR / "annotation.xlsx"

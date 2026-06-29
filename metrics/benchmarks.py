@@ -8,11 +8,10 @@ BASE_DIR = Path(__file__).resolve().parent
 INPUT_DIR = BASE_DIR / "input"
 OUTPUT_DIR = BASE_DIR / "output"
 
-BENCHMARK_FILES = [
-    "benchmarkGPT4omini.jsonl",
-    "benchmarkGPT55.jsonl",
-    "benchmarkLLaMa3.jsonl",
-    "benchmarkDeepSeekR1.jsonl",
+BENCHMARK_PATTERNS = [
+    "benchmark*.json",
+    "benchmark*.jsonl",
+    "benchmark*.txt",
 ]
 
 OUTPUT_FILE = OUTPUT_DIR / "benchmark_comparison.xlsx"
@@ -50,12 +49,20 @@ def load_json_or_jsonl(path: Path):
 
 rows = []
 
-for file in BENCHMARK_FILES:
-    path = INPUT_DIR / file
+benchmark_paths = sorted({
+    path
+    for pattern in BENCHMARK_PATTERNS
+    for path in INPUT_DIR.glob(pattern)
+})
 
-    if not path.exists():
-        print(f"[WARN] File not found, skipped: {file}")
-        continue
+if not benchmark_paths:
+    raise FileNotFoundError(
+        f"No benchmark files found in {INPUT_DIR}. "
+        "Expected files matching benchmark*.json, benchmark*.jsonl, or benchmark*.txt."
+    )
+
+for path in benchmark_paths:
+    file = path.name
 
     data = load_json_or_jsonl(path)
 
