@@ -1,5 +1,6 @@
 import json
 import re
+from itertools import combinations
 from pathlib import Path
 from typing import List, Tuple
 
@@ -20,9 +21,12 @@ BASE_DIR = Path(__file__).resolve().parent
 INPUT_DIR = BASE_DIR / "input"
 OUTPUT_DIR = BASE_DIR / "output"
 
-FILE_A = INPUT_DIR / "valid_GPT55.txt"
-FILE_B = INPUT_DIR / "valid_DeepSeekR1.txt"
-SENTENCES_FILE = INPUT_DIR / "valid_dataset.txt"
+SENTENCE_FILE_CANDIDATES = [
+    INPUT_DIR / "dataset300.txt",
+    INPUT_DIR / "lulc_sample.txt",
+    INPUT_DIR / "valid_dataset.txt",
+    INPUT_DIR / "lulc_dataset.txt",
+]
 
 OUTPUT_FILE = OUTPUT_DIR / "triple_matching_analysis.xlsx"
 
@@ -180,6 +184,17 @@ def read_sentences_file(path: str) -> List[str]:
     return Path(path).read_text(encoding="utf-8").splitlines()
 
 
+def find_sentence_file(expected_lines: int) -> Path:
+    for path in SENTENCE_FILE_CANDIDATES:
+        if path.exists() and len(read_sentences_file(path)) == expected_lines:
+            return path
+
+    raise FileNotFoundError(
+        f"No sentence file with {expected_lines} lines found. Checked: "
+        + ", ".join(str(path) for path in SENTENCE_FILE_CANDIDATES)
+    )
+
+
 # =========================
 # MATCHING
 # =========================
@@ -230,25 +245,49 @@ def compute_metrics(total_a: int, total_b: int, total_matches: int):
     return precision, recall, f1
 
 
-# =========================
-# MAIN
-# =========================
+def model_name_from_path(path: Path) -> str:
+    name = path.stem
+    suffix = "results"
+    if name.endswith(suffix):
+        name = name[:-len(suffix)]
+    return name
 
-def main() -> None:
-    data_a = read_triples_file(FILE_A)
-    data_b = read_triples_file(FILE_B)
-    sentences = read_sentences_file(SENTENCES_FILE)
 
+def make_sheet_name(model_a: str, model_b: str, used_names: set[str]) -> str:
+    invalid_chars = '[]:*?/\\'
+    sheet_name = f"{model_a}_vs_{model_b}"
+    for char in invalid_chars:
+        sheet_name = sheet_name.replace(char, "_")
+    sheet_name = sheet_name[:31]
+
+    base_name = sheet_name
+    counter = 1
+    while sheet_name in used_names:
+        suffix = f"_{counter}"
+        sheet_name = f"{base_name[:31 - len(suffix)]}{suffix}"
+        counter += 1
+
+    used_names.add(sheet_name)
+    return sheet_name
+
+
+def evaluate_pair(
+    model_a: str,
+    data_a: List[List[Triple]],
+    model_b: str,
+    data_b: List[List[Triple]],
+    sentences: List[str],
+):
     if len(data_a) != len(data_b):
         raise ValueError(
-            f"The two triple files have different numbers of lines: "
+            f"{model_a} and {model_b} have different numbers of lines: "
             f"{len(data_a)} vs {len(data_b)}"
         )
 
     if len(sentences) != len(data_a):
         raise ValueError(
-            f"The sentence file and triple files have different numbers of lines: "
-            f"{len(sentences)} vs {len(data_a)}"
+            f"The sentence file and triple files have different numbers of lines for "
+            f"{model_a} vs {model_b}: sentences={len(sentences)} vs triples={len(data_a)}"
         )
 
     rows = []
@@ -271,10 +310,6 @@ def main() -> None:
         pairs = get_hungarian_pairs(triples_a, triples_b)
         total_pairs += len(pairs)
 
-        # =========================
-        # LOCAL JACCARD PER SENTENCE
-        # =========================
-
         sentence_matches = sum(
             1 for pair in pairs
             if pair["status"] == "MATCH"
@@ -285,8 +320,6 @@ def main() -> None:
         if sentence_union > 0:
             sentence_jaccard = sentence_matches / sentence_union
         else:
-            # Both models extracted zero triples:
-            # agreement on a noisy/non-informative sentence
             sentence_jaccard = 1.0
             empty_empty_sentences += 1
 
@@ -304,9 +337,9 @@ def main() -> None:
             rows.append({
                 "sentence_id": sentence_id if first_row else "",
                 "sentence": sentence if first_row else "",
-                "triple_txt1": str(pair["triple_a"]),
+                f"{model_a}_triple": str(pair["triple_a"]),
                 "status": pair["status"],
-                "triple_txt2": str(pair["triple_b"]),
+                f"{model_b}_triple": str(pair["triple_b"]),
                 "score": round(pair["score"], 4),
                 "subject_similarity": round(pair["subject_similarity"], 4),
                 "relation_similarity": round(pair["relation_similarity"], 4),
@@ -315,15 +348,14 @@ def main() -> None:
 
             first_row = False
 
-    df = pd.DataFrame(rows)
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    df.to_excel(OUTPUT_FILE, index=False)
-
-    precision, recall, f1 = compute_metrics(
+    overlap_a, overlap_b, _f1 = compute_metrics(
         total_a,
         total_b,
         total_matches
     )
+
+    union = total_a + total_b - total_matches
+    micro_jaccard = total_matches / union if union else 1.0
 
     mean_local_jaccard = (
         sum(local_jaccard_scores) / len(local_jaccard_scores)
@@ -331,19 +363,73 @@ def main() -> None:
         else 0.0
     )
 
-    print(f"\nSaved Excel file: {OUTPUT_FILE}")
+    summary = {
+        "model_a": model_a,
+        "model_b": model_b,
+        "threshold": FINAL_SCORE_THRESHOLD,
+        "total_triples_a": total_a,
+        "total_triples_b": total_b,
+        "overlap_on_a": overlap_a,
+        "overlap_on_b": overlap_b,
+        "total_matches": total_matches,
+        "micro_jaccard": micro_jaccard,
+        "mean_local_jaccard": mean_local_jaccard,
+        "total_pairs": total_pairs,
+        "empty_empty_sentences": empty_empty_sentences,
+    }
 
-    print(f"Threshold:          {FINAL_SCORE_THRESHOLD}")
+    return summary, pd.DataFrame(rows)
 
-    print(f"Total triples A:    {total_a}")
-    print(f"Total triples B:    {total_b}")
 
-    print(f"Overlap on A:       {precision:.4f}")
-    print(f"Overlap on B:       {recall:.4f}")
+# =========================
+# MAIN
+# =========================
 
-    print(f"Total matches:      {total_matches}")
+def main() -> None:
+    result_files = sorted(INPUT_DIR.glob("*results.txt"))
+    if len(result_files) < 2:
+        raise FileNotFoundError(
+            f"Expected at least two *results.txt files in {INPUT_DIR}"
+        )
 
-    print(f"Mean local Jaccard: {mean_local_jaccard:.4f}")
+    data_by_model = {
+        model_name_from_path(path): read_triples_file(path)
+        for path in result_files
+    }
+
+    expected_lines = len(next(iter(data_by_model.values())))
+    sentence_file = find_sentence_file(expected_lines)
+    sentences = read_sentences_file(sentence_file)
+
+    summary_rows = []
+    pair_results = []
+
+    for model_a, model_b in combinations(data_by_model.keys(), 2):
+        summary, details_df = evaluate_pair(
+            model_a=model_a,
+            data_a=data_by_model[model_a],
+            model_b=model_b,
+            data_b=data_by_model[model_b],
+            sentences=sentences,
+        )
+        summary_rows.append(summary)
+        pair_results.append((model_a, model_b, details_df))
+
+    OUTPUT_DIR.mkdir(exist_ok=True)
+
+    used_sheet_names = {"Summary"}
+    with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
+        pd.DataFrame(summary_rows).to_excel(
+            writer,
+            sheet_name="Summary",
+            index=False,
+        )
+
+        for model_a, model_b, details_df in pair_results:
+            sheet_name = make_sheet_name(model_a, model_b, used_sheet_names)
+            details_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    print(f"Saved Excel file: {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
