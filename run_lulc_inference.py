@@ -14,7 +14,33 @@ from post_processing import TripletPostProcessor
 
 
 # CONFIG
+# Run examples from PowerShell:
+#
+#   OpenAI:
+#     $env:LLM_PROVIDER="openai"
+#     $env:MODEL_NAME="gpt-4o-mini"
+#     python run_lulc_inference.py
+#
+#   Gemini:
+#     $env:LLM_PROVIDER="gemini"
+#     $env:MODEL_NAME="gemini-2.5-flash"
+#     python run_lulc_inference.py
+#
+#   Ollama:
+#     $env:LLM_PROVIDER="ollama"
+#     $env:MODEL_NAME="llama3"
+#     python run_lulc_inference.py
+#
+# Required API keys are read from local environment variables:
+#   OPENAI_API_KEY for OpenAI
+#   GEMINI_API_KEY for Gemini
+#
+# ENERGY_TRACKER defaults to "auto":
+#   openai/gemini -> EcoLogits
+#   ollama        -> CodeCarbon
+
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
 
 DATASET_NAME = "lulc_dataset"
 
@@ -25,20 +51,14 @@ RAW_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "raw_triplets.txt")
 FINAL_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "final_triplets.txt")
 ERRORS_PATH = os.path.join(OUTPUT_DIR, "parsing_errors.txt")
 
-BENCHMARK_PATH = os.path.join(OUTPUT_DIR, "benchmark_results.jsonl")
+BENCHMARK_PATH = os.path.join(OUTPUT_DIR, "benchmark.json")
 
 FEW_SHOT_PATH = f"./prompts/few_shot_examples/{DATASET_NAME}/oie_few_shot_examples.txt"
 SCHEMA_PATH = f"./schemas/{DATASET_NAME}_schema.csv"
 
-# Tracking mode:
-# - auto: EcoLogits for API/OpenAI, CodeCarbon for local/Ollama
-# - api: force EcoLogits
-# - local: force CodeCarbon
-# - none: disable energy tracking
-TRACKING_MODE = os.getenv("TRACKING_MODE", "auto").lower()
+ENERGY_TRACKER = os.getenv("ENERGY_TRACKER", "auto").lower()
 
 
-# SYSTEM PROMPT
 OIE_PROMPT = """Our task is to extract a semantic graph from the input text as a list of triples.
 
 Return ONLY valid JSON in the following format:
@@ -72,8 +92,6 @@ Each extracted triple should represent distinct events or characteristics and st
 canonical relation schema, ensuring that all relevant relationships in the text are captured without ambiguity.
 """
 
-
-# USER PROMPT
 SUFFIX_PROMPT = """
 Here are some examples:
 {few_shot_examples}
@@ -86,8 +104,8 @@ Text:
 Triplets:
 """
 
-
 def validate_input_paths() -> None:
+    """Ensure that dataset, few-shot examples, and schema files exist."""
     required_files = [
         DATASET_PATH,
         FEW_SHOT_PATH,
@@ -102,6 +120,7 @@ def validate_input_paths() -> None:
 
 
 def read_schema_relations(path: str):
+    """Load the list of allowed canonical relations from the schema CSV."""
     local_rels = pd.read_csv(
         path,
         header=None,
@@ -111,12 +130,38 @@ def read_schema_relations(path: str):
     return local_rels["name"].to_numpy()
 
 
-def get_client() -> OpenAI:
-    if os.getenv("USE_OLLAMA") == "1":
+def get_client(provider: str) -> OpenAI:
+    """Create an OpenAI-compatible client for OpenAI, Gemini, or Ollama."""
+    if provider == "ollama":
         return OpenAI(
             api_key="ollama",
-            base_url="http://localhost:11434/v1",
+            base_url=os.getenv(
+                "OLLAMA_BASE_URL",
+                "http://localhost:11434/v1"
+            ),
             timeout=60.0
+        )
+
+    if provider == "gemini":
+        api_key = os.getenv("GEMINI_API_KEY")
+
+        if not api_key:
+            raise ValueError(
+                "GEMINI_API_KEY environment variable is not set."
+            )
+
+        return OpenAI(
+            api_key=api_key,
+            base_url=os.getenv(
+                "GEMINI_BASE_URL",
+                "https://generativelanguage.googleapis.com/v1beta/openai/"
+            ),
+            timeout=60.0
+        )
+
+    if provider != "openai":
+        raise ValueError(
+            "Unsupported LLM_PROVIDER. Use one of: openai, gemini, ollama."
         )
 
     api_key = os.getenv("OPENAI_API_KEY")
@@ -132,37 +177,26 @@ def get_client() -> OpenAI:
     )
 
 
-def is_local_run(model_name: str) -> bool:
-    if os.getenv("USE_OLLAMA") == "1":
-        return True
+def get_tracking_backend(provider: str) -> str:
+    """Resolve which energy tracking backend should be used for this run."""
+    if ENERGY_TRACKER in {"ecologits", "codecarbon", "none"}:
+        return ENERGY_TRACKER
 
-    model = model_name.lower()
+    if ENERGY_TRACKER != "auto":
+        raise ValueError(
+            "Unsupported ENERGY_TRACKER. Use one of: "
+            "auto, ecologits, codecarbon, none."
+        )
 
-    local_keywords = [
-        "llama",
-        "llama3",
-        "deepseek",
-        "mistral",
-        "qwen",
-        "gemma",
-        "ollama"
-    ]
+    if provider == "ollama":
+        return "codecarbon"
 
-    return any(keyword in model for keyword in local_keywords)
-
-
-def get_tracking_backend(model_name: str) -> str:
-    if TRACKING_MODE in {"api", "local", "none"}:
-        return TRACKING_MODE
-
-    if is_local_run(model_name):
-        return "local"
-
-    return "api"
+    return "ecologits"
 
 
 def init_ecologits_if_needed(tracking_backend: str) -> None:
-    if tracking_backend != "api":
+    """Enable EcoLogits when tracking API-model energy estimates."""
+    if tracking_backend != "ecologits":
         return
 
     try:
@@ -184,7 +218,8 @@ def start_codecarbon_if_needed(
     output_dir: str,
     model_name: str
 ):
-    if tracking_backend != "local":
+    """Start CodeCarbon when measuring local-model hardware emissions."""
+    if tracking_backend != "codecarbon":
         return None
 
     try:
@@ -219,6 +254,7 @@ def start_codecarbon_if_needed(
 
 
 def stop_codecarbon_tracker(tracker) -> Dict[str, Optional[float]]:
+    """Stop CodeCarbon and normalize its final energy and CO2 metrics."""
     if tracker is None:
         return {
             "energy_kwh": None,
@@ -244,6 +280,7 @@ def stop_codecarbon_tracker(tracker) -> Dict[str, Optional[float]]:
 
 
 def sanitize_name(name: str) -> str:
+    """Convert model names into filesystem-safe identifiers."""
     return re.sub(
         r"[^a-zA-Z0-9_.-]+",
         "_",
@@ -252,6 +289,7 @@ def sanitize_name(name: str) -> str:
 
 
 def read_sentences(path: str) -> List[str]:
+    """Read one non-empty input sentence per line from a text file."""
     sentences: List[str] = []
 
     with open(path, "r", encoding="utf-8") as f:
@@ -265,6 +303,7 @@ def read_sentences(path: str) -> List[str]:
 
 
 def read_few_shot(path: Optional[str]) -> str:
+    """Load the few-shot prompt examples used for each model call."""
     if not path:
         return ""
 
@@ -273,6 +312,7 @@ def read_few_shot(path: Optional[str]) -> str:
 
 
 def extract_usage(completion) -> Dict[str, Optional[int]]:
+    """Extract token usage from an OpenAI-compatible completion object."""
     usage = getattr(completion, "usage", None)
 
     if usage is None:
@@ -290,6 +330,7 @@ def extract_usage(completion) -> Dict[str, Optional[int]]:
 
 
 def extract_ecologits_impacts(completion) -> Dict[str, Optional[float]]:
+    """Extract EcoLogits energy and CO2 estimates from a completion."""
     impacts = getattr(completion, "impacts", None)
 
     if impacts is None:
@@ -321,6 +362,7 @@ def add_optional_number(
     current: Optional[float],
     value: Optional[float]
 ) -> Optional[float]:
+    """Add nullable numeric values while preserving None for missing data."""
     if value is None:
         return current
 
@@ -334,16 +376,18 @@ def call_llm(
     client: OpenAI,
     sentence: str,
     few_shot_examples: str,
+    provider: str,
     model_name: str,
     tracking_backend: str,
     max_retries: int = 5
 ) -> Tuple[Optional[str], Dict[str, Any]]:
+    """Call the selected LLM and return the raw response plus metrics."""
 
     for attempt in range(max_retries):
         try:
-            completion = client.chat.completions.create(
-                model=model_name,
-                messages=[
+            completion_params = {
+                "model": model_name,
+                "messages": [
                     {
                         "role": "system",
                         "content": OIE_PROMPT
@@ -355,8 +399,16 @@ def call_llm(
                             input_text=sentence
                         )
                     }
-                ],
-                max_completion_tokens=1200
+                ]
+            }
+
+            if provider == "openai":
+                completion_params["max_completion_tokens"] = 1200
+            else:
+                completion_params["max_tokens"] = 1200
+
+            completion = client.chat.completions.create(
+                **completion_params
             )
 
             content = completion.choices[0].message.content
@@ -367,7 +419,7 @@ def call_llm(
                 "co2_kg": None
             }
 
-            if tracking_backend == "api":
+            if tracking_backend == "ecologits":
                 metrics.update(
                     extract_ecologits_impacts(completion)
                 )
@@ -395,6 +447,7 @@ def call_llm(
 
 
 def extract_list_block(text: str) -> str:
+    """Extract the JSON-like list of triplets from a model response."""
     text = text.strip()
 
     text = re.sub(
@@ -427,6 +480,7 @@ def extract_list_block(text: str) -> str:
 
 
 def parse_triplets(text: str) -> List[List[str]]:
+    """Parse, validate, and normalize model output into triplet lists."""
     list_block = extract_list_block(text)
 
     try:
@@ -477,6 +531,7 @@ def post_process_triplets(
     triplets: List[List[str]],
     sentence: str
 ) -> List[List[str]]:
+    """Apply schema-aware validation and deduplicate accepted triplets."""
 
     final_triplets: List[List[str]] = []
 
@@ -516,6 +571,7 @@ def post_process_triplets(
 
 
 def ensure_output_dir(path: str) -> None:
+    """Create the output directory if it does not already exist."""
     Path(path).mkdir(
         parents=True,
         exist_ok=True
@@ -526,6 +582,7 @@ def append_triplets_txt(
     path: str,
     triplets: List[List[str]]
 ) -> None:
+    """Append one JSON-encoded triplet list to a text output file."""
 
     with open(path, "a", encoding="utf-8") as f:
         f.write(
@@ -540,6 +597,7 @@ def append_error_txt(
     path: str,
     record: dict
 ) -> None:
+    """Append one JSON-encoded parsing or inference error record."""
 
     with open(path, "a", encoding="utf-8") as f:
         f.write(
@@ -550,26 +608,29 @@ def append_error_txt(
         )
 
 
-def append_benchmark_jsonl(
+def write_benchmark_json(
     path: str,
     record: dict
 ) -> None:
+    """Write the benchmark record, replacing any previous run."""
 
-    with open(path, "a", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8") as f:
 
-        f.write(
-            json.dumps(
-                record,
-                ensure_ascii=False,
-                indent=2
-            ) + "\n"
+        json.dump(
+            record,
+            f,
+            ensure_ascii=False,
+            indent=2
         )
+
+        f.write("\n")
 
 
 def safe_divide(
     numerator: Optional[float],
     denominator: Optional[float]
 ) -> Optional[float]:
+    """Divide values only when both numerator and denominator are valid."""
 
     if numerator is None:
         return None
@@ -581,6 +642,7 @@ def safe_divide(
 
 
 def main() -> None:
+    """Run the full LULC inference, post-processing, and benchmarking flow."""
     validate_input_paths()
 
     ensure_output_dir(OUTPUT_DIR)
@@ -601,7 +663,9 @@ def main() -> None:
 
     logger = logging.getLogger(__name__)
 
-    tracking_backend = get_tracking_backend(MODEL_NAME)
+    tracking_backend = get_tracking_backend(
+        provider=LLM_PROVIDER
+    )
 
     init_ecologits_if_needed(tracking_backend)
 
@@ -620,7 +684,7 @@ def main() -> None:
         logger
     )
 
-    client = get_client()
+    client = get_client(LLM_PROVIDER)
 
     few_shot_examples = read_few_shot(
         FEW_SHOT_PATH
@@ -649,8 +713,9 @@ def main() -> None:
 
     print(f"Loaded {total} sentences from {DATASET_PATH}")
     print(f"Loaded schema from {SCHEMA_PATH}")
+    print(f"Provider: {LLM_PROVIDER}")
     print(f"Model: {MODEL_NAME}")
-    print(f"Tracking backend: {tracking_backend}")
+    print(f"Energy tracker: {tracking_backend}")
 
     try:
         for i, sentence in enumerate(sentences, start=1):
@@ -660,6 +725,7 @@ def main() -> None:
                 client=client,
                 sentence=sentence,
                 few_shot_examples=few_shot_examples,
+                provider=LLM_PROVIDER,
                 model_name=MODEL_NAME,
                 tracking_backend=tracking_backend
             )
@@ -677,7 +743,7 @@ def main() -> None:
             if tokens is not None:
                 total_tokens += int(tokens)
 
-            if tracking_backend == "api":
+            if tracking_backend == "ecologits":
                 api_energy_kwh = add_optional_number(
                     api_energy_kwh,
                     llm_metrics.get("energy_kwh")
@@ -768,12 +834,12 @@ def main() -> None:
             codecarbon_tracker
         )
 
-        if tracking_backend == "local":
+        if tracking_backend == "codecarbon":
             total_energy_kwh = local_energy_data["energy_kwh"]
             total_co2_kg = local_energy_data["co2_kg"]
             energy_measurement_type = "measured_local_hardware_codecarbon"
 
-        elif tracking_backend == "api":
+        elif tracking_backend == "ecologits":
             total_energy_kwh = api_energy_kwh
             total_co2_kg = api_co2_kg
             energy_measurement_type = "estimated_api_ecologits"
@@ -784,8 +850,11 @@ def main() -> None:
             energy_measurement_type = "disabled"
 
         benchmark_record = {
+            "provider": LLM_PROVIDER,
             "model": MODEL_NAME,
             "dataset": DATASET_NAME,
+            "energy_tracker": tracking_backend,
+            "energy_measurement_type": energy_measurement_type,
             "sentences_total": total,
             "successful_responses": successful_responses,
             "failed_responses": failed_responses,
@@ -828,7 +897,7 @@ def main() -> None:
             ),
         }
 
-        append_benchmark_jsonl(
+        write_benchmark_json(
             BENCHMARK_PATH,
             benchmark_record
         )
