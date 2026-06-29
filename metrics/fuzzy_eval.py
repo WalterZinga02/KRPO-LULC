@@ -2,10 +2,14 @@ import re
 import ast
 import unicodedata
 from difflib import SequenceMatcher
+from pathlib import Path
 from typing import List, Tuple, Dict, Any
 from scipy.optimize import linear_sum_assignment
 
 Triplet = Tuple[str, str, str]
+
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "input"
 
 # =========================
 # 1. NORMALIZATION
@@ -406,8 +410,8 @@ def print_results(results: Dict[str, Any]) -> None:
 # =========================
 
 if __name__ == "__main__":
-    GOLD_FILE = "gold.txt"
-    PREDS_FILE = "preds.txt"
+    GOLD_FILE = INPUT_DIR / "gold.txt"
+    PREDS_FILE = INPUT_DIR / "preds.txt"
     THRESHOLD = 0.65
 
     golds_by_sentence = load_triplets_file(GOLD_FILE)

@@ -33,17 +33,23 @@ evaluate/
   references/                              Reference files for evaluation
 
 metrics/
+  input/                                   Ignored metric input files
+  output/                                  Ignored metric outputs
+  agreement_processor.py                   Annotation agreement metrics
+  barplot.py                               Benchmark metric plots
+  benchmarks.py                            Benchmark comparison metrics
   fuzzy_eval.py                            Fuzzy matching utilities
   heatmap_plotter.py                       Model comparison heatmaps
   match_checker.py                         Match inspection utilities
   recurring_patterns.py                    Pattern analysis utilities
+  statistics.py                            Per-sentence annotation metrics
 
 tools/
+  input/                                   Ignored tool input files
+  output/                                  Ignored tool outputs
   annotation.py                            Annotation helper
-  agreement_processor.py                   Annotation agreement processing
-  benchmarks.py                            Benchmark helper utilities
-  match_values.py                          Matching utilities
   replace_h_t_4reldef.py                   Relation definition helper
+  subset_extractor.py                      Random subset generation from datasets
 
 model_utils/
   llms.py                                  Legacy LLM wrapper used by KRPO scripts
@@ -51,7 +57,6 @@ model_utils/
 run_lulc_inference.py                      Main LULC triplet extraction script
 post_processing.py                         Triplet validation and schema-aware post-processing
 run_tg_batch.py                            Original KRPO batch extraction script
-subset_extractor.py                        Random subset generation from datasets
 textcleaner.py                             Text preprocessing utilities
 
 all_corpus_processed.xlsx                  Text extracted from source documents

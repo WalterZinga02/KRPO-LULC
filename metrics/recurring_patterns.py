@@ -16,14 +16,18 @@ Triple = Tuple[str, str, str]
 # CONFIG
 # =========================
 
-TRIPLES_FILE = "LLaMa3FullCorpus.txt"
-SENTENCES_FILE = "Lulc_dataset.txt"
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "input"
+OUTPUT_DIR = BASE_DIR / "output"
+
+TRIPLES_FILE = INPUT_DIR / "LLaMa3FullCorpus.txt"
+SENTENCES_FILE = INPUT_DIR / "lulc_dataset.txt"
 
 MODEL_NAME = "GPT4o-mini"
 
 SIMILARITY_MODE = "embedding"  # "fuzzy" or "embedding"
 
-OUTPUT_FILE = f"recurring_triple_patterns_{SIMILARITY_MODE}.xlsx"
+OUTPUT_FILE = OUTPUT_DIR / f"recurring_triple_patterns_{SIMILARITY_MODE}.xlsx"
 
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
@@ -581,6 +585,8 @@ def main() -> None:
             first_row = False
 
     df_patterns = pd.DataFrame(pattern_rows)
+
+    OUTPUT_DIR.mkdir(exist_ok=True)
 
     with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
         df_patterns.to_excel(

@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from matplotlib.patches import Patch
 
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "output"
+
 # =========================
 # DATA
 # =========================
@@ -44,8 +47,8 @@ MODEL_COLORS = {
 # OUTPUT DIR
 # =========================
 
-output_dir = Path("plots")
-output_dir.mkdir(exist_ok=True)
+output_dir = OUTPUT_DIR / "plots"
+output_dir.mkdir(parents=True, exist_ok=True)
 
 # =========================
 # PLOT FUNCTION

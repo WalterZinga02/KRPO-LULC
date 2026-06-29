@@ -1,8 +1,14 @@
 import pandas as pd
+from pathlib import Path
 
-INPUT_FILE = "agreement.xlsx"
+
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "input"
+OUTPUT_DIR = BASE_DIR / "output"
+
+INPUT_FILE = INPUT_DIR / "agreement.xlsx"
 SHEET_NAME = "Sheet1"
-OUTPUT_FILE = "per_sentence_metrics.xlsx"
+OUTPUT_FILE = OUTPUT_DIR / "per_sentence_metrics.xlsx"
 
 MODELS = {
     "GPT4omini": ("GPT4ominiresults", "Status"),
@@ -68,6 +74,8 @@ for sentence_id, group in df.groupby("ID"):
     rows.append(row)
 
 out_df = pd.DataFrame(rows)
+
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
     out_df.to_excel(writer, index=False)

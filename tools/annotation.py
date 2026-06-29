@@ -3,16 +3,20 @@ import ast
 import pandas as pd
 
 
-SENTENCES_FILE = "dataset300.txt"
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "input"
+OUTPUT_DIR = BASE_DIR / "output"
+
+SENTENCES_FILE = INPUT_DIR / "dataset300.txt"
 
 TRIPLETS_FILES = [
-    "GPT4ominiresults.txt",
-    "LLaMa3results.txt",
-    "GPT55results.txt",
-    "DeepSeekR1results.txt"
+    INPUT_DIR / "GPT4ominiresults.txt",
+    INPUT_DIR / "LLaMa3results.txt",
+    INPUT_DIR / "GPT55results.txt",
+    INPUT_DIR / "DeepSeekR1results.txt"
 ]
 
-OUTPUT_FILE = "annotation.xlsx"
+OUTPUT_FILE = OUTPUT_DIR / "annotation.xlsx"
 
 
 if not 1 <= len(TRIPLETS_FILES) <= 4:
@@ -29,14 +33,16 @@ def parse_triplets(line: str):
     return []
 
 
-sentences = Path(SENTENCES_FILE).read_text(encoding="utf-8").splitlines()
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+sentences = SENTENCES_FILE.read_text(encoding="utf-8").splitlines()
 
 column_names = [Path(file).stem for file in TRIPLETS_FILES]
 
 all_triplets = []
 
 for file in TRIPLETS_FILES:
-    lines = Path(file).read_text(encoding="utf-8").splitlines()
+    lines = file.read_text(encoding="utf-8").splitlines()
 
     if len(lines) != len(sentences):
         raise ValueError(

@@ -4,6 +4,10 @@ from pathlib import Path
 import pandas as pd
 
 
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "input"
+OUTPUT_DIR = BASE_DIR / "output"
+
 BENCHMARK_FILES = [
     "benchmarkGPT4omini.jsonl",
     "benchmarkGPT55.jsonl",
@@ -11,7 +15,7 @@ BENCHMARK_FILES = [
     "benchmarkDeepSeekR1.jsonl",
 ]
 
-OUTPUT_FILE = "benchmark_comparison.xlsx"
+OUTPUT_FILE = OUTPUT_DIR / "benchmark_comparison.xlsx"
 
 API_PRICES_PER_1M = {
     "gpt-4o-mini": {
@@ -47,7 +51,7 @@ def load_json_or_jsonl(path: Path):
 rows = []
 
 for file in BENCHMARK_FILES:
-    path = Path(file)
+    path = INPUT_DIR / file
 
     if not path.exists():
         print(f"[WARN] File not found, skipped: {file}")
@@ -184,6 +188,8 @@ normalized_per_triplet_cols = [
     "final_triplets_per_kwh",
     "final_triplets_per_kg_co2",
 ]
+
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
     df[overview_cols].to_excel(

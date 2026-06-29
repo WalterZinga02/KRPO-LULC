@@ -4,12 +4,16 @@ import pandas as pd
 from pathlib import Path
 
 
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "input"
+OUTPUT_DIR = BASE_DIR / "output"
+
 # =========================
 # CONFIG
 # =========================
 
-INPUT_FILE = "Agreement.xlsx"
-OUTPUT_EXCEL = "valid_triples_stats.xlsx"
+INPUT_FILE = INPUT_DIR / "Agreement.xlsx"
+OUTPUT_EXCEL = OUTPUT_DIR / "valid_triples_stats.xlsx"
 
 ID_COL = "ID"
 SENTENCE_COL = "sentence"
@@ -90,6 +94,8 @@ df[ID_COL] = df[ID_COL].ffill()
 df[SENTENCE_COL] = df[SENTENCE_COL].ffill()
 df[ID_COL] = df[ID_COL].astype(int)
 
+OUTPUT_DIR.mkdir(exist_ok=True)
+
 
 # =========================
 # CREATE TXT FILES
@@ -114,8 +120,9 @@ for model in MODELS:
 
         lines.append(json.dumps(valid_triples, ensure_ascii=False))
 
-    Path(txt_file).write_text("\n".join(lines), encoding="utf-8")
-    print(f"Creato: {txt_file}")
+    output_txt = OUTPUT_DIR / txt_file
+    output_txt.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Creato: {output_txt}")
 
 
 # =========================

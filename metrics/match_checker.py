@@ -16,11 +16,15 @@ Triple = Tuple[str, str, str]
 # CONFIG
 # =========================
 
-FILE_A = "valid_GPT55.txt"
-FILE_B = "valid_DeepSeekR1.txt"
-SENTENCES_FILE = "valid_dataset.txt"
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "input"
+OUTPUT_DIR = BASE_DIR / "output"
 
-OUTPUT_FILE = "triple_matching_analysis.xlsx"
+FILE_A = INPUT_DIR / "valid_GPT55.txt"
+FILE_B = INPUT_DIR / "valid_DeepSeekR1.txt"
+SENTENCES_FILE = INPUT_DIR / "valid_dataset.txt"
+
+OUTPUT_FILE = OUTPUT_DIR / "triple_matching_analysis.xlsx"
 
 FINAL_SCORE_THRESHOLD = 0.55
 
@@ -312,6 +316,7 @@ def main() -> None:
             first_row = False
 
     df = pd.DataFrame(rows)
+    OUTPUT_DIR.mkdir(exist_ok=True)
     df.to_excel(OUTPUT_FILE, index=False)
 
     precision, recall, f1 = compute_metrics(

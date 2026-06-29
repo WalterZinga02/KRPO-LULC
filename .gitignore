@@ -14,11 +14,12 @@ logs/
 
 *.log
 
-metrics/*.txt
-metrics/*xlsx
+metrics/input/*
+!metrics/input/.gitkeep
+metrics/output/*
+!metrics/output/.gitkeep
 
-tools/*.txt
-tools/*xlsx
-tools/*.jsonl
-
-tools/plots/*.png
+tools/input/*
+!tools/input/.gitkeep
+tools/output/*
+!tools/output/.gitkeep

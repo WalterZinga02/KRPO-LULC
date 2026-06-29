@@ -1,6 +1,12 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from pathlib import Path
+
+
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 
 models = [
@@ -60,7 +66,10 @@ plt.figtext(
 )
 
 plt.tight_layout(rect=[0, 0.04, 1, 1])
-plt.show()
+semantic_output = OUTPUT_DIR / "semantic_overlap_heatmap.png"
+plt.savefig(semantic_output, dpi=300, bbox_inches="tight")
+plt.close()
+print(f"Saved: {semantic_output}")
 
 
 # =========================================
@@ -126,4 +135,7 @@ plt.figtext(
 
 plt.tight_layout(rect=[0, 0.04, 1, 1])
 
-plt.show()
+jaccard_output = OUTPUT_DIR / "mean_local_jaccard_heatmap.png"
+plt.savefig(jaccard_output, dpi=300, bbox_inches="tight")
+plt.close()
+print(f"Saved: {jaccard_output}")

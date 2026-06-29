@@ -42,7 +42,7 @@ from post_processing import TripletPostProcessor
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
 
-DATASET_NAME = "lulc_dataset"
+DATASET_NAME = "lulc_sample"
 
 DATASET_PATH = f"datasets/{DATASET_NAME}.txt"
 OUTPUT_DIR = f"outputs/{DATASET_NAME}"
